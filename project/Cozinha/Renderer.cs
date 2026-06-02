@@ -152,77 +152,121 @@ public static class Renderer
     }
 
     // ── Walter sprite cache ───────────────────────────────────────────────────
+    //
+    // Layout:
+    //   Torso  — walter_body.png       (estático, não muda)
+    //   Cabeça — walter_head_normal.png / walter_head_happy.png / walter_head_angry.png
+    //            (troca conforme WalterExpression: 0 = normal, 1 = feliz, 2 = irritado)
+    //
+    // Posições na tela (ajuste as constantes abaixo conforme o tamanho real dos PNGs):
+    //   Torso: ancoragem pela base (pés na mesa), cresce para cima
+    //   Cabeça: centralizada horizontalmente sobre o torso, senta no topo dele
+    //
+    // Constantes de layout — edite aqui para afinar sem mexer na lógica:
+    const int WalterCX      = 330;  // centro horizontal do personagem na tela
+    const int WalterBaseY   = 355;  // Y da base do torso (= CharZone.Bottom - table height)
+    const int TorsoW        = 110;  // largura do sprite do torso
+    const int TorsoH        = 130;  // altura do sprite do torso
+    const int HeadW         = 100;  // largura do sprite da cabeça
+    const int HeadH         = 100;  // altura do sprite da cabeça
+    const int HeadOverlapPx = 10;   // quantos px a cabeça sobrepõe o topo do torso
 
-    static Image? _walterSprite;
-    static bool   _walterLoaded;
+    static Image? _walterBody;
+    static bool   _walterBodyLoaded;
 
-    static Image? WalterSprite
+    static readonly Image?[] _walterHeads    = new Image?[3];
+    static readonly bool[]   _walterHeadsLoaded = new bool[3];
+
+    static readonly string[] HeadFiles = ["walter_head_normal.png", "walter_head_happy.png", "walter_head_angry.png"];
+
+    static Image? GetBody()
     {
-        get
-        {
-            if (_walterLoaded) return _walterSprite;
-            _walterLoaded = true;
-            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "walter.png");
-            if (File.Exists(path))
-                _walterSprite = Image.FromFile(path);
-            return _walterSprite;
-        }
+        if (_walterBodyLoaded) return _walterBody;
+        _walterBodyLoaded = true;
+        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "walter_body.png");
+        if (File.Exists(path)) _walterBody = Image.FromFile(path);
+        return _walterBody;
+    }
+
+    static Image? GetHead(int expression)
+    {
+        int idx = Math.Clamp(expression, 0, 2);
+        if (_walterHeadsLoaded[idx]) return _walterHeads[idx];
+        _walterHeadsLoaded[idx] = true;
+        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", HeadFiles[idx]);
+        if (File.Exists(path)) _walterHeads[idx] = Image.FromFile(path);
+        return _walterHeads[idx];
     }
 
     static void DrawWalter(Graphics g, int expression)
     {
-        // Target rect: left side of CharZone, above the table, tall enough to show head + torso
-        const int spriteW = 120;
-        const int spriteH = 200;
-        const int spriteX = 220; // left of CharZone center, clear of the beaker at x=510
-        const int spriteY = 145; // top of character area
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
 
-        var dest = new Rectangle(spriteX, spriteY, spriteW, spriteH);
+        // Torso: base fixa na mesa, cresce para cima
+        int torsoX = WalterCX - TorsoW / 2;
+        int torsoY = WalterBaseY - TorsoH;
+        var torsoRect = new Rectangle(torsoX, torsoY, TorsoW, TorsoH);
 
-        var sprite = WalterSprite;
-        if (sprite is not null)
-        {
-            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
-            g.DrawImage(sprite, dest);
-        }
+        // Cabeça: senta no topo do torso com sobreposição controlada
+        int headX = WalterCX - HeadW / 2;
+        int headY = torsoY - HeadH + HeadOverlapPx;
+        var headRect = new Rectangle(headX, headY, HeadW, HeadH);
+
+        var body = GetBody();
+        var head = GetHead(expression);
+
+        if (body is not null)
+            g.DrawImage(body, torsoRect);
         else
-        {
-            // Fallback GDI+ placeholder while sprite is missing
-            int cx = spriteX + spriteW / 2;
+            DrawFallbackTorso(g, torsoRect);
 
-            using var coat = new SolidBrush(Color.WhiteSmoke);
-            g.FillRectangle(coat, new Rectangle(cx - 35, spriteY + 100, 70, 90));
-            using var coatBorder = new Pen(Color.LightGray, 1);
-            g.DrawRectangle(coatBorder, new Rectangle(cx - 35, spriteY + 100, 70, 90));
+        if (head is not null)
+            g.DrawImage(head, headRect);
+        else
+            DrawFallbackHead(g, headRect, expression);
+    }
 
-            Color skinColor = Color.FromArgb(220, 180, 140);
-            using var skin = new SolidBrush(skinColor);
-            g.FillEllipse(skin, cx - 28, spriteY + 10, 56, 62);
+    static void DrawFallbackTorso(Graphics g, Rectangle r)
+    {
+        using var coat   = new SolidBrush(Color.WhiteSmoke);
+        using var border = new Pen(Color.LightGray, 1);
+        g.FillRectangle(coat, r);
+        g.DrawRectangle(border, r);
+        using var tag = new SolidBrush(Color.FromArgb(160, Color.Yellow));
+        using var f   = new Font("Arial", 6f);
+        g.DrawString("[walter_body.png]", f, tag, r.X + 2, r.Bottom - 14);
+    }
 
-            using var tagFont  = new Font("Arial", 6f);
-            using var tagBrush = new SolidBrush(Color.FromArgb(160, Color.Yellow));
-            g.DrawString("[walter.png ausente]", tagFont, tagBrush, spriteX, spriteY + spriteH + 4);
-        }
+    static void DrawFallbackHead(Graphics g, Rectangle r, int expression)
+    {
+        int cx = r.X + r.Width / 2;
+        int cy = r.Y + r.Height / 2;
 
-        // Expression overlay on top of the sprite (boca / sobrancelha)
-        int fx = spriteX + spriteW / 2; // face center x
-        int fy = spriteY + 50;          // approximate face center y inside sprite
+        using var skin = new SolidBrush(Color.FromArgb(220, 180, 140));
+        g.FillEllipse(skin, r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8);
 
-        using var mouth = new Pen(Color.FromArgb(150, 80, 80), 2);
+        using var mouth = new Pen(Color.FromArgb(120, 60, 60), 2);
         switch (expression)
         {
-            case 1: // feliz
-                g.DrawArc(mouth, fx - 10, fy + 18, 20, 10, 0, 180);
+            case 1:
+                g.DrawArc(mouth, cx - 10, cy + 8, 20, 10, 0, 180);
                 break;
-            case 2: // irritado
+            case 2:
             {
-                g.DrawArc(mouth, fx - 10, fy + 22, 20, 10, 180, 180);
-                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2.5f);
-                g.DrawLine(brow, fx - 18, fy - 2, fx - 4,  fy + 4);
-                g.DrawLine(brow, fx + 4,  fy + 4, fx + 18, fy - 2);
+                g.DrawArc(mouth, cx - 10, cy + 12, 20, 10, 180, 180);
+                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2f);
+                g.DrawLine(brow, cx - 16, cy - 6, cx - 2, cy);
+                g.DrawLine(brow, cx + 2,  cy,     cx + 16, cy - 6);
                 break;
             }
+            default:
+                g.DrawLine(mouth, cx - 10, cy + 10, cx + 10, cy + 10);
+                break;
         }
+
+        using var tag = new SolidBrush(Color.FromArgb(160, Color.Yellow));
+        using var f   = new Font("Arial", 6f);
+        g.DrawString($"[{HeadFiles[Math.Clamp(expression, 0, 2)]}]", f, tag, r.X + 2, r.Bottom - 14);
     }
 
     static void DrawBeaker(Graphics g, GameState state)
