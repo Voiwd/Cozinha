@@ -151,60 +151,78 @@ public static class Renderer
         g.DrawLine(edge, CharZone.X, CharZone.Bottom - 30, CharZone.Right, CharZone.Bottom - 30);
     }
 
+    // ── Walter sprite cache ───────────────────────────────────────────────────
+
+    static Image? _walterSprite;
+    static bool   _walterLoaded;
+
+    static Image? WalterSprite
+    {
+        get
+        {
+            if (_walterLoaded) return _walterSprite;
+            _walterLoaded = true;
+            string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "walter.png");
+            if (File.Exists(path))
+                _walterSprite = Image.FromFile(path);
+            return _walterSprite;
+        }
+    }
+
     static void DrawWalter(Graphics g, int expression)
     {
-        // PLACEHOLDER: Walter White represented as labeled rectangles
-        // TODO: replace with sprite asset
+        // Target rect: left side of CharZone, above the table, tall enough to show head + torso
+        const int spriteW = 120;
+        const int spriteH = 200;
+        const int spriteX = 220; // left of CharZone center, clear of the beaker at x=510
+        const int spriteY = 145; // top of character area
 
-        int cx = 390; // center x within char zone
+        var dest = new Rectangle(spriteX, spriteY, spriteW, spriteH);
 
-        // Body (lab coat)
-        using var coat = new SolidBrush(Color.WhiteSmoke);
-        g.FillRectangle(coat, new Rectangle(cx - 35, 210, 70, 95));
-        using var coatBorder = new Pen(Color.LightGray, 1);
-        g.DrawRectangle(coatBorder, new Rectangle(cx - 35, 210, 70, 95));
+        var sprite = WalterSprite;
+        if (sprite is not null)
+        {
+            g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+            g.DrawImage(sprite, dest);
+        }
+        else
+        {
+            // Fallback GDI+ placeholder while sprite is missing
+            int cx = spriteX + spriteW / 2;
 
-        // Head
-        Color skinColor = Color.FromArgb(220, 180, 140);
-        using var skin = new SolidBrush(skinColor);
-        g.FillEllipse(skin, cx - 28, 145, 56, 62);
-        using var headBorder = new Pen(Color.FromArgb(180, 140, 100), 1.5f);
-        g.DrawEllipse(headBorder, cx - 28, 145, 56, 62);
+            using var coat = new SolidBrush(Color.WhiteSmoke);
+            g.FillRectangle(coat, new Rectangle(cx - 35, spriteY + 100, 70, 90));
+            using var coatBorder = new Pen(Color.LightGray, 1);
+            g.DrawRectangle(coatBorder, new Rectangle(cx - 35, spriteY + 100, 70, 90));
 
-        // Glasses (two small rects — placeholder for sprite)
-        using var glassesPen = new Pen(Color.Black, 1.5f);
-        g.DrawRectangle(glassesPen, cx - 24, 166, 18, 11);
-        g.DrawRectangle(glassesPen, cx + 4,  166, 18, 11);
-        g.DrawLine(glassesPen, cx - 6, 171, cx + 4, 171);
+            Color skinColor = Color.FromArgb(220, 180, 140);
+            using var skin = new SolidBrush(skinColor);
+            g.FillEllipse(skin, cx - 28, spriteY + 10, 56, 62);
 
-        // Goatee
-        using var goatee = new SolidBrush(Color.FromArgb(60, 40, 30));
-        g.FillEllipse(goatee, cx - 8, 192, 16, 10);
+            using var tagFont  = new Font("Arial", 6f);
+            using var tagBrush = new SolidBrush(Color.FromArgb(160, Color.Yellow));
+            g.DrawString("[walter.png ausente]", tagFont, tagBrush, spriteX, spriteY + spriteH + 4);
+        }
 
-        // Mouth by expression
-        using var mouth = new Pen(Color.FromArgb(120, 60, 60), 2);
+        // Expression overlay on top of the sprite (boca / sobrancelha)
+        int fx = spriteX + spriteW / 2; // face center x
+        int fy = spriteY + 50;          // approximate face center y inside sprite
+
+        using var mouth = new Pen(Color.FromArgb(150, 80, 80), 2);
         switch (expression)
         {
             case 1: // feliz
-                g.DrawArc(mouth, cx - 12, 182, 24, 14, 0, 180);
+                g.DrawArc(mouth, fx - 10, fy + 18, 20, 10, 0, 180);
                 break;
             case 2: // irritado
             {
-                g.DrawArc(mouth, cx - 12, 186, 24, 14, 180, 180);
-                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2);
-                g.DrawLine(brow, cx - 22, 162, cx - 8,  166);
-                g.DrawLine(brow, cx + 8,  166, cx + 22, 162);
+                g.DrawArc(mouth, fx - 10, fy + 22, 20, 10, 180, 180);
+                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2.5f);
+                g.DrawLine(brow, fx - 18, fy - 2, fx - 4,  fy + 4);
+                g.DrawLine(brow, fx + 4,  fy + 4, fx + 18, fy - 2);
                 break;
             }
-            default: // neutro
-                g.DrawLine(mouth, cx - 10, 186, cx + 10, 186);
-                break;
         }
-
-        // [asset] tag
-        using var tagFont  = new Font("Arial", 6f);
-        using var tagBrush = new SolidBrush(Color.FromArgb(140, Color.Yellow));
-        g.DrawString("[walter — asset]", tagFont, tagBrush, cx - 40, 310);
     }
 
     static void DrawBeaker(Graphics g, GameState state)
