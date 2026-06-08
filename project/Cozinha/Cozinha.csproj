@@ -8,4 +8,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+
+  <ItemGroup>
+    <Content Include="..\..\assets\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>assets\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
 </Project>

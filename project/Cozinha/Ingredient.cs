@@ -25,11 +25,13 @@ public static class IngredientFactory
             ("HCl",    "Ácido Clorídrico",    "HCl",    Color.LightGreen,              Color.FromArgb(180, 230, 180)),
         };
 
-        const int startX = 40;
-        const int spacing = 120;
-        const int bottleY = 15;
-        const int bottleW = 70;
-        const int bottleH = 85;
+        // 3 bottles per shelf; shelf surfaces at y=130 and y=182
+        const int bottleW = 80;
+        const int bottleH = 58;
+        int[] xs    = { 65, 295, 525 };
+        int[] ys    = { 130 - bottleH, 130 - bottleH, 130 - bottleH,
+                        182 - bottleH, 182 - bottleH, 182 - bottleH };
+        int[] xsFull = { xs[0], xs[1], xs[2], xs[0], xs[1], xs[2] };
 
         var list = new List<Ingredient>();
         for (int i = 0; i < defs.Length; i++)
@@ -42,7 +44,7 @@ public static class IngredientFactory
                 Formula     = d.formula,
                 BottleColor = d.bottle,
                 LiquidColor = d.liquid,
-                Bounds      = new Rectangle(startX + i * spacing, bottleY, bottleW, bottleH),
+                Bounds      = new Rectangle(xsFull[i], ys[i], bottleW, bottleH),
             });
         }
         return list;

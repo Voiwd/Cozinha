@@ -4,10 +4,10 @@ public static class HitTester
 {
     public static readonly Dictionary<string, Rectangle> ButtonBounds = new()
     {
-        ["HEAT"]  = new Rectangle(170, 390, 110, 50),
-        ["MIX"]   = new Rectangle(310, 390, 110, 50),
-        ["SERVE"] = new Rectangle(450, 390, 110, 50),
-        ["RESET"] = new Rectangle(620, 400, 80,  35),
+        ["HEAT"]  = new Rectangle(150, 472, 110, 48),
+        ["MIX"]   = new Rectangle(295, 472, 110, 48),
+        ["SERVE"] = new Rectangle(440, 472, 110, 48),
+        ["RESET"] = new Rectangle(622, 477, 80,  38),
     };
 
     public static string? HitIngredient(Point p, List<Ingredient> ingredients)

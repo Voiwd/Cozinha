@@ -12,6 +12,7 @@ public partial class Form1 : Form
         InitializeComponent();
         DoubleBuffered = true;
 
+        AssetManager.Load();
         _state       = new GameState();
         _ingredients = IngredientFactory.CreateAll();
         _mousePos    = Point.Empty;
