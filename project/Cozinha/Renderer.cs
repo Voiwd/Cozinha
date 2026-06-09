@@ -70,7 +70,8 @@ public static class Renderer
         // 5. Table (covers Walter's lower half)
         DrawTable(g);
 
-        // 6. Beaker on table (on top of everything)
+        // 6. Beaker and burner on table (on top of everything)
+        DrawBurner(g);
         DrawBeaker(g);
     }
 
@@ -177,11 +178,24 @@ public static class Renderer
         // Beaker positioned in the center of the table, where reactions happen
         if (AssetManager.Beaker != null)
         {
-            const int beakerW = 80;
-            const int beakerH = 100;
+            const int beakerW = 180;
+            const int beakerH = 140;
             const int beakerX = 360; // center of 800px canvas
             const int beakerY = 270; // on the table surface
             g.DrawImage(AssetManager.Beaker, new Rectangle(beakerX, beakerY, beakerW, beakerH));
+        }
+    }
+
+    static void DrawBurner(Graphics g)
+    {
+        // Bunsen burner positioned on the left side of the table
+        if (AssetManager.Burner != null)
+        {
+            const int burnerW = 100;
+            const int burnerH = 120;
+            const int burnerX = 120; // left side of table
+            const int burnerY = 280; // on the table surface
+            g.DrawImage(AssetManager.Burner, new Rectangle(burnerX, burnerY, burnerW, burnerH));
         }
     }
 

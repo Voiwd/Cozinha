@@ -2,11 +2,12 @@ namespace Cozinha;
 
 public static class AssetManager
 {
-    public static Bitmap? Background { get; private set; }
-    public static Bitmap? Estante    { get; private set; }
-    public static Bitmap? Mesa       { get; private set; }
-    public static Bitmap? Walter     { get; private set; }
-    public static Bitmap? Beaker     { get; private set; }
+    public static Bitmap? Background   { get; private set; }
+    public static Bitmap? Estante      { get; private set; }
+    public static Bitmap? Mesa         { get; private set; }
+    public static Bitmap? Walter       { get; private set; }
+    public static Bitmap? Beaker       { get; private set; }
+    public static Bitmap? Burner       { get; private set; }
 
     static Dictionary<string, Bitmap?> IngredientAssets { get; } = new();
 
@@ -17,6 +18,7 @@ public static class AssetManager
         Mesa       = LoadAsset("mesa.png",       keyWhite: true);
         Walter     = LoadAsset("walter.png",     keyWhite: false); // real alpha channel
         Beaker     = LoadAsset("bequer.png",     keyWhite: true);
+        Burner     = LoadAsset("bicobunsen.png", keyWhite: true);
 
         // Load ingredient compound images
         LoadIngredientAsset("NaOH.png");
