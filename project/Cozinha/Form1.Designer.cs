@@ -34,6 +34,8 @@
             this.Text = "Cozinha — Lab do Heisenberg";
             this.BackColor = System.Drawing.Color.Black;
             this.KeyPreview = true;
+            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
+            this.MaximizeBox = false;
         }
 
         #endregion

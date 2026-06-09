@@ -1,27 +1,46 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace Cozinha;
 
 // All coordinates assume 800x600 client area.
 public static class Renderer
 {
-    // Zone rectangles
-    static readonly Rectangle ShelfZone    = new(0,   0,   800, 115);
-    static readonly Rectangle StepZone     = new(0,   115, 160, 270);
-    static readonly Rectangle CharZone     = new(160, 115, 460, 270);
-    static readonly Rectangle InfoZone     = new(620, 115, 180, 270);
-    static readonly Rectangle ActionZone   = new(0,   385, 800, 215);
+    // ── Scene constants ──────────────────────────────────────────────────────
+
+    // Shelf top edges in game canvas
+    const int Shelf1Top = 80;
+    const int Shelf2Top = 200;
+    // The shelf strip lives at roughly y=355 in the 600px estante.png
+    static readonly Rectangle EstanteSrcRect = new(0, 375, 800, 50);
+
+    // Walter: upper body visible on the right, lower half behind the mesa.
+    static readonly Rectangle WalterDest = new(480, 90, 360, 360);
+
+    // Table top surface y
+    const int TableTop = 315;
+    const int TableBottom = 460;
+
+    // ── Game UI zones ────────────────────────────────────────────────────────
+
+    static readonly Rectangle StepZone   = new(5,   195, 150, 120);
+    static readonly Rectangle InfoZone   = new(610, 195, 185, 120);
+    static readonly Rectangle ActionZone = new(0,   462, 800, 138);
+
+    // Beaker and burner on table surface
+    const int BeakerX = 230, BeakerY = 240, BeakerW = 55, BeakerH = 65;
+    const int BurnerX = 215, BurnerY = 295;
+
+    // ── Entry point ──────────────────────────────────────────────────────────
 
     public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        DrawShelf(g, ingredients, state, mouse);
-        DrawStepPanel(g, state);
-        DrawCharZone(g, state);
-        DrawInfoPanel(g, state);
-        DrawActionBar(g, state, mouse);
+        DrawScene(g, ingredients, state, mouse);
+        // DrawBeaker(g, state);
+        // DrawBurner(g, state.IsHeated);
 
         if (state.Phase == GamePhase.WrongOrder)
             DrawErrorFlash(g, state.LastFeedbackMessage);
@@ -29,19 +48,216 @@ public static class Renderer
             DrawSuccessOverlay(g);
     }
 
-    // ── Shelf ────────────────────────────────────────────────────────────────
+    // ── Scene ────────────────────────────────────────────────────────────────
 
-    static void DrawShelf(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse)
+    static void DrawScene(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse)
     {
-        // Background
-        using var bg = new SolidBrush(Color.FromArgb(55, 35, 15));
-        g.FillRectangle(bg, ShelfZone);
+        // 1. Background
+        if (AssetManager.Background != null)
+            g.DrawImage(AssetManager.Background, 0, 0, 800, 600);
+        else
+            DrawFallbackBackground(g);
 
-        // Shelf plank
-        using var plank = new SolidBrush(Color.FromArgb(90, 60, 25));
-        g.FillRectangle(plank, new Rectangle(0, 100, 800, 15));
+        // 2. Shelves (on the wall, behind Walter)
+        DrawShelves(g);
 
-        // Next-step ingredient id
+        // 3. Ingredients sitting on shelves (behind Walter)
+        DrawIngredients(g, ingredients, state, mouse);
+
+        // 4. Walter (in front of wall and shelves, behind table)
+        DrawWalter(g, state.WalterExpression);
+
+        // 5. Table (covers Walter's lower half)
+        DrawTable(g);
+
+        // 6. Beaker and burner on table (on top of everything)
+        DrawBurner(g);
+        DrawBeaker(g);
+
+        // 7. UI Buttons
+        DrawButtons(g, state.Phase);
+    }
+
+    static void DrawFallbackBackground(Graphics g)
+    {
+        using var brush = new SolidBrush(Color.FromArgb(55, 20, 75));
+        g.FillRectangle(brush, 0, 0, 800, 600);
+    }
+
+    static void DrawShelves(Graphics g)
+    {
+        // Draw the shelf strip (bottom slice of estante.png) at two positions.
+        if (AssetManager.Estante != null)
+        {
+            var dst1 = new Rectangle(0, Shelf1Top, 800, EstanteSrcRect.Height);
+            var dst2 = new Rectangle(0, Shelf2Top, 800, EstanteSrcRect.Height);
+            g.DrawImage(AssetManager.Estante, dst1, EstanteSrcRect, GraphicsUnit.Pixel);
+            g.DrawImage(AssetManager.Estante, dst2, EstanteSrcRect, GraphicsUnit.Pixel);
+        }
+        else
+        {
+            DrawFallbackShelf(g, Shelf1Top);
+            DrawFallbackShelf(g, Shelf2Top);
+        }
+    }
+
+    static void DrawFallbackShelf(Graphics g, int y)
+    {
+        using var brush = new SolidBrush(Color.FromArgb(180, 140, 50));
+        g.FillRoundedRectangle(brush, new Rectangle(15, y, 770, 22), 6);
+        using var pen = new Pen(Color.FromArgb(120, 85, 25), 2);
+        g.DrawRoundedRectangle(pen, new Rectangle(15, y, 770, 22), 6);
+    }
+
+    static void DrawWalter(Graphics g, int expression)
+    {
+        if (AssetManager.Walter != null)
+        {
+            g.DrawImage(AssetManager.Walter, WalterDest);
+            return;
+        }
+
+        // GDI+ fallback
+        int cx = 510;
+        using var coat = new SolidBrush(Color.WhiteSmoke);
+        g.FillRectangle(coat, new Rectangle(cx - 35, 210, 70, 95));
+
+        using var skin = new SolidBrush(Color.FromArgb(220, 180, 140));
+        g.FillEllipse(skin, cx - 28, 145, 56, 62);
+
+        using var glassesPen = new Pen(Color.Black, 1.5f);
+        g.DrawRectangle(glassesPen, cx - 24, 166, 18, 11);
+        g.DrawRectangle(glassesPen, cx + 4,  166, 18, 11);
+        g.DrawLine(glassesPen, cx - 6, 171, cx + 4, 171);
+
+        using var goatee = new SolidBrush(Color.FromArgb(60, 40, 30));
+        g.FillEllipse(goatee, cx - 8, 192, 16, 10);
+
+        using var mouth = new Pen(Color.FromArgb(120, 60, 60), 2);
+        switch (expression)
+        {
+            case 1:
+                g.DrawArc(mouth, cx - 12, 182, 24, 14, 0, 180);
+                break;
+            case 2:
+            {
+                g.DrawArc(mouth, cx - 12, 186, 24, 14, 180, 180);
+                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2);
+                g.DrawLine(brow, cx - 22, 162, cx - 8,  166);
+                g.DrawLine(brow, cx + 8,  166, cx + 22, 162);
+                break;
+            }
+            default:
+                g.DrawLine(mouth, cx - 10, 186, cx + 10, 186);
+                break;
+        }
+    }
+
+    static void DrawTable(Graphics g)
+    {
+        // mesa.png is also a full 800x600 overlay; it covers Walter's lower half.
+        if (AssetManager.Mesa != null)
+        {
+            g.DrawImage(AssetManager.Mesa, 0, 0, 800, 600);
+        }
+        else
+        {
+            DrawFallbackTable(g);
+        }
+    }
+
+    static void DrawFallbackTable(Graphics g)
+    {
+        using var top = new SolidBrush(Color.FromArgb(190, 145, 65));
+        g.FillRoundedRectangle(top, new Rectangle(0, TableTop, 800, 20), 6);
+        using var body = new SolidBrush(Color.FromArgb(170, 130, 55));
+        g.FillRectangle(body, new Rectangle(0, TableTop + 20, 800, TableBottom - TableTop - 20));
+        using var pen = new Pen(Color.FromArgb(120, 85, 30), 2);
+        g.DrawRoundedRectangle(pen, new Rectangle(1, TableTop, 798, TableBottom - TableTop), 6);
+    }
+
+    static void DrawBeaker(Graphics g)
+    {
+        // Beaker positioned in the center of the table, where reactions happen
+        if (AssetManager.Beaker != null)
+        {
+            const int beakerW = 180;
+            const int beakerH = 140;
+            const int beakerX = 360; // center of 800px canvas
+            const int beakerY = 270; // on the table surface
+            g.DrawImage(AssetManager.Beaker, new Rectangle(beakerX, beakerY, beakerW, beakerH));
+        }
+    }
+
+    static void DrawBurner(Graphics g)
+    {
+        // Bunsen burner positioned on the left side of the table
+        if (AssetManager.Burner != null)
+        {
+            const int burnerW = 100;
+            const int burnerH = 120;
+            const int burnerX = 120; // left side of table
+            const int burnerY = 280; // on the table surface
+            g.DrawImage(AssetManager.Burner, new Rectangle(burnerX, burnerY, burnerW, burnerH));
+        }
+    }
+
+    static void DrawButtons(Graphics g, GamePhase phase)
+    {
+        // "On" button - red circle, below the burner
+        DrawCircleButton(g, 200, 435, 20, "On", Color.Red, Color.White);
+
+        // "Ok" button - green circle, center bottom
+        DrawCircleButton(g, 400, 555, 20, "Ok", Color.LimeGreen, Color.Black);
+
+        // "Recomeçar" button - blue rectangle, bottom right
+        DrawRectButton(g, 700, 540, 100, 40, "Recomeçar", Color.RoyalBlue, Color.White);
+    }
+
+    static void DrawCircleButton(Graphics g, int cx, int cy, int radius, string label, Color bgColor, Color textColor)
+    {
+        // Draw filled circle background
+        using var bgBrush = new SolidBrush(bgColor);
+        g.FillEllipse(bgBrush, cx - radius, cy - radius, radius * 2, radius * 2);
+
+        // Draw border
+        using var borderPen = new Pen(Color.FromArgb(40, 40, 40), 2f);
+        g.DrawEllipse(borderPen, cx - radius, cy - radius, radius * 2, radius * 2);
+
+        // Draw text
+        using var font = new Font("Arial", 10f, FontStyle.Bold);
+        using var textBrush = new SolidBrush(textColor);
+        var textSize = g.MeasureString(label, font);
+        g.DrawString(label, font, textBrush,
+            cx - textSize.Width / 2f,
+            cy - textSize.Height / 2f);
+    }
+
+    static void DrawRectButton(Graphics g, int x, int y, int w, int h, string label, Color bgColor, Color textColor)
+    {
+        const int cornerRadius = 6;
+
+        // Draw rounded rectangle background
+        using var bgBrush = new SolidBrush(bgColor);
+        g.FillRoundedRectangle(bgBrush, new Rectangle(x, y, w, h), cornerRadius);
+
+        // Draw border
+        using var borderPen = new Pen(Color.FromArgb(40, 40, 40), 1.5f);
+        g.DrawRoundedRectangle(borderPen, new Rectangle(x, y, w, h), cornerRadius);
+
+        // Draw text
+        using var font = new Font("Arial", 9f, FontStyle.Bold);
+        using var textBrush = new SolidBrush(textColor);
+        var textSize = g.MeasureString(label, font);
+        g.DrawString(label, font, textBrush,
+            x + (w - textSize.Width) / 2f,
+            y + (h - textSize.Height) / 2f);
+    }
+
+    // ── Ingredients ──────────────────────────────────────────────────────────
+
+    static void DrawIngredients(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse)
+    {
         string? nextIngId = null;
         if (state.Phase == GamePhase.Playing && state.CurrentStep < GameState.Recipe.Length)
         {
@@ -61,227 +277,109 @@ public static class Renderer
     {
         var r = ing.Bounds;
 
-        // PLACEHOLDER: colored rectangle representing a bottle
-        // TODO: replace with sprite asset
+        // Try to draw ingredient asset image
+        if (!string.IsNullOrEmpty(ing.AssetName))
+        {
+            var asset = AssetManager.GetIngredientAsset(ing.AssetName);
+            if (asset != null)
+            {
+                // Draw image with slight opacity if hovered
+                var oldState = g.Save();
+                if (hovered)
+                {
+                    var cm = new ColorMatrix();
+                    cm.Matrix33 = 0.85f;
+                    var ia = new ImageAttributes();
+                    ia.SetColorMatrix(cm);
+                    g.DrawImage(asset, r, 0, 0, asset.Width, asset.Height, GraphicsUnit.Pixel, ia);
+                }
+                else
+                {
+                    g.DrawImage(asset, r);
+                }
+                g.Restore(oldState);
+
+                // Draw highlight border if next ingredient
+                if (isNext)
+                {
+                    using var border = new Pen(Color.Gold, 2.5f);
+                    g.DrawRectangle(border, r);
+                }
+                return;
+            }
+        }
+
+        // Fallback: draw GDI+ bottle
         Color fill = hovered ? Lighten(ing.BottleColor, 30) : ing.BottleColor;
         using var body = new SolidBrush(fill);
         g.FillRectangle(body, r);
 
-        // Liquid fill (lower 40%)
         int liqH = (int)(r.Height * 0.4f);
         using var liq = new SolidBrush(ing.LiquidColor);
         g.FillRectangle(liq, new Rectangle(r.X + 3, r.Bottom - liqH - 3, r.Width - 6, liqH));
 
-        // Border
-        using var border = new Pen(isNext ? Color.Gold : Color.FromArgb(80, 80, 80), isNext ? 2.5f : 1f);
-        g.DrawRectangle(border, r);
+        using var border2 = new Pen(isNext ? Color.Gold : Color.FromArgb(80, 80, 80), isNext ? 2.5f : 1f);
+        g.DrawRectangle(border2, r);
 
-        // Formula label
         using var font = new Font("Consolas", 7f, FontStyle.Bold);
         using var txt  = new SolidBrush(Color.Black);
         var sz = g.MeasureString(ing.Formula, font);
         g.DrawString(ing.Formula, font, txt,
             r.X + (r.Width - sz.Width) / 2f,
             r.Y + 5);
-
-        // "PLACEHOLDER" tag in small gray
-        using var tagFont = new Font("Arial", 5.5f);
-        using var tagBrush = new SolidBrush(Color.FromArgb(120, 0, 0, 0));
-        g.DrawString("[asset]", tagFont, tagBrush, r.X + 2, r.Bottom - 13);
     }
 
     // ── Step panel ──────────────────────────────────────────────────────────
 
     static void DrawStepPanel(Graphics g, GameState state)
     {
-        using var bg = new SolidBrush(Color.FromArgb(20, 20, 35));
+        using var bg = new SolidBrush(Color.FromArgb(170, 10, 10, 25));
         g.FillRectangle(bg, StepZone);
 
         using var titleFont = new Font("Arial", 9f, FontStyle.Bold);
         using var white = new SolidBrush(Color.White);
-        g.DrawString("RECEITA", titleFont, white, StepZone.X + 10, StepZone.Y + 8);
+        g.DrawString("RECEITA", titleFont, white, StepZone.X + 8, StepZone.Y + 6);
 
-        using var stepFont  = new Font("Arial", 8f);
+        using var stepFont  = new Font("Arial", 7.5f);
         using var doneColor = new SolidBrush(Color.FromArgb(100, 200, 100));
         using var dimColor  = new SolidBrush(Color.FromArgb(100, 100, 100));
         using var goldBar   = new SolidBrush(Color.Gold);
 
-        int y = StepZone.Y + 28;
+        int y = StepZone.Y + 24;
         for (int i = 0; i < GameState.Recipe.Length; i++)
         {
             var step = GameState.Recipe[i];
             string prefix = i < state.CurrentStep ? "✓" : $"{i + 1}.";
-            string label  = step.DisplayName.Length > 14 ? step.DisplayName[..14] : step.DisplayName;
+            string label  = step.DisplayName.Length > 13 ? step.DisplayName[..13] : step.DisplayName;
             string line   = $"{prefix} {label}";
 
             if (i == state.CurrentStep && state.Phase == GamePhase.Playing)
             {
-                g.FillRectangle(goldBar, new Rectangle(StepZone.X, y, 3, 18));
-                g.DrawString(line, stepFont, white, StepZone.X + 8, y);
+                g.FillRectangle(goldBar, new Rectangle(StepZone.X, y, 3, 16));
+                g.DrawString(line, stepFont, white, StepZone.X + 7, y);
             }
             else if (i < state.CurrentStep)
-            {
-                g.DrawString(line, stepFont, doneColor, StepZone.X + 8, y);
-            }
+                g.DrawString(line, stepFont, doneColor, StepZone.X + 7, y);
             else
-            {
-                g.DrawString(line, stepFont, dimColor, StepZone.X + 8, y);
-            }
+                g.DrawString(line, stepFont, dimColor, StepZone.X + 7, y);
 
-            y += 33;
+            y += 14;
         }
     }
 
-    // ── Character zone ───────────────────────────────────────────────────────
-
-    static void DrawCharZone(Graphics g, GameState state)
-    {
-        // Background (dark lab)
-        using var bg = new SolidBrush(Color.FromArgb(30, 30, 50));
-        g.FillRectangle(bg, CharZone);
-
-        DrawWalter(g, state.WalterExpression);
-        DrawBeaker(g, state);
-        DrawBurner(g, state.IsHeated);
-
-        // Table surface
-        using var table = new SolidBrush(Color.FromArgb(100, 70, 40));
-        g.FillRectangle(table, new Rectangle(CharZone.X, CharZone.Bottom - 30, CharZone.Width, 30));
-        using var edge = new Pen(Color.FromArgb(70, 45, 20), 2);
-        g.DrawLine(edge, CharZone.X, CharZone.Bottom - 30, CharZone.Right, CharZone.Bottom - 30);
-    }
-
-    // ── Walter sprite cache ───────────────────────────────────────────────────
-    //
-    // Layout:
-    //   Torso  — walter_body.png       (estático, não muda)
-    //   Cabeça — walter_head_normal.png / walter_head_happy.png / walter_head_angry.png
-    //            (troca conforme WalterExpression: 0 = normal, 1 = feliz, 2 = irritado)
-    //
-    // Posições na tela (ajuste as constantes abaixo conforme o tamanho real dos PNGs):
-    //   Torso: ancoragem pela base (pés na mesa), cresce para cima
-    //   Cabeça: centralizada horizontalmente sobre o torso, senta no topo dele
-    //
-    // Constantes de layout — edite aqui para afinar sem mexer na lógica:
-    const int WalterCX      = 330;  // centro horizontal do personagem na tela
-    const int WalterBaseY   = 355;  // Y da base do torso (= CharZone.Bottom - table height)
-    const int TorsoW        = 110;  // largura do sprite do torso
-    const int TorsoH        = 130;  // altura do sprite do torso
-    const int HeadW         = 100;  // largura do sprite da cabeça
-    const int HeadH         = 100;  // altura do sprite da cabeça
-    const int HeadOverlapPx = 10;   // quantos px a cabeça sobrepõe o topo do torso
-
-    static Image? _walterBody;
-    static bool   _walterBodyLoaded;
-
-    static readonly Image?[] _walterHeads    = new Image?[3];
-    static readonly bool[]   _walterHeadsLoaded = new bool[3];
-
-    static readonly string[] HeadFiles = ["walter_head_normal.png", "walter_head_happy.png", "walter_head_angry.png"];
-
-    static Image? GetBody()
-    {
-        if (_walterBodyLoaded) return _walterBody;
-        _walterBodyLoaded = true;
-        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "walter_body.png");
-        if (File.Exists(path)) _walterBody = Image.FromFile(path);
-        return _walterBody;
-    }
-
-    static Image? GetHead(int expression)
-    {
-        int idx = Math.Clamp(expression, 0, 2);
-        if (_walterHeadsLoaded[idx]) return _walterHeads[idx];
-        _walterHeadsLoaded[idx] = true;
-        string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", HeadFiles[idx]);
-        if (File.Exists(path)) _walterHeads[idx] = Image.FromFile(path);
-        return _walterHeads[idx];
-    }
-
-    static void DrawWalter(Graphics g, int expression)
-    {
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-
-        // Torso: base fixa na mesa, cresce para cima
-        int torsoX = WalterCX - TorsoW / 2;
-        int torsoY = WalterBaseY - TorsoH;
-        var torsoRect = new Rectangle(torsoX, torsoY, TorsoW, TorsoH);
-
-        // Cabeça: senta no topo do torso com sobreposição controlada
-        int headX = WalterCX - HeadW / 2;
-        int headY = torsoY - HeadH + HeadOverlapPx;
-        var headRect = new Rectangle(headX, headY, HeadW, HeadH);
-
-        var body = GetBody();
-        var head = GetHead(expression);
-
-        if (body is not null)
-            g.DrawImage(body, torsoRect);
-        else
-            DrawFallbackTorso(g, torsoRect);
-
-        if (head is not null)
-            g.DrawImage(head, headRect);
-        else
-            DrawFallbackHead(g, headRect, expression);
-    }
-
-    static void DrawFallbackTorso(Graphics g, Rectangle r)
-    {
-        using var coat   = new SolidBrush(Color.WhiteSmoke);
-        using var border = new Pen(Color.LightGray, 1);
-        g.FillRectangle(coat, r);
-        g.DrawRectangle(border, r);
-        using var tag = new SolidBrush(Color.FromArgb(160, Color.Yellow));
-        using var f   = new Font("Arial", 6f);
-        g.DrawString("[walter_body.png]", f, tag, r.X + 2, r.Bottom - 14);
-    }
-
-    static void DrawFallbackHead(Graphics g, Rectangle r, int expression)
-    {
-        int cx = r.X + r.Width / 2;
-        int cy = r.Y + r.Height / 2;
-
-        using var skin = new SolidBrush(Color.FromArgb(220, 180, 140));
-        g.FillEllipse(skin, r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8);
-
-        using var mouth = new Pen(Color.FromArgb(120, 60, 60), 2);
-        switch (expression)
-        {
-            case 1:
-                g.DrawArc(mouth, cx - 10, cy + 8, 20, 10, 0, 180);
-                break;
-            case 2:
-            {
-                g.DrawArc(mouth, cx - 10, cy + 12, 20, 10, 180, 180);
-                using var brow = new Pen(Color.FromArgb(60, 40, 30), 2f);
-                g.DrawLine(brow, cx - 16, cy - 6, cx - 2, cy);
-                g.DrawLine(brow, cx + 2,  cy,     cx + 16, cy - 6);
-                break;
-            }
-            default:
-                g.DrawLine(mouth, cx - 10, cy + 10, cx + 10, cy + 10);
-                break;
-        }
-
-        using var tag = new SolidBrush(Color.FromArgb(160, Color.Yellow));
-        using var f   = new Font("Arial", 6f);
-        g.DrawString($"[{HeadFiles[Math.Clamp(expression, 0, 2)]}]", f, tag, r.X + 2, r.Bottom - 14);
-    }
+    // ── Beaker & Burner ───────────────────────────────────────────────────────
 
     static void DrawBeaker(Graphics g, GameState state)
     {
-        int bx = 510, by = 215, bw = 50, bh = 70;
+        int bx = BeakerX, by = BeakerY, bw = BeakerW, bh = BeakerH;
 
-        // Heat glow
         if (state.IsHeated)
         {
             using var glow = new SolidBrush(Color.FromArgb(60, 255, 120, 0));
             g.FillEllipse(glow, bx - 8, by + bh - 10, bw + 16, 20);
         }
 
-        // Beaker body — trapezoid placeholder
-        Point[] trapezoid =
+        Point[] trap =
         {
             new(bx,      by),
             new(bx + bw, by),
@@ -289,9 +387,8 @@ public static class Renderer
             new(bx + 5,  by + bh),
         };
         using var glass = new SolidBrush(Color.FromArgb(160, 200, 220, 240));
-        g.FillPolygon(glass, trapezoid);
+        g.FillPolygon(glass, trap);
 
-        // Liquid inside
         int liquidSteps = state.BeakerContents.Count;
         if (liquidSteps > 0)
         {
@@ -301,85 +398,63 @@ public static class Renderer
                 ? Color.FromArgb(180, 100, 200, 100)
                 : Color.FromArgb(160, 100, 160, 220);
             using var liq = new SolidBrush(liqColor);
-            int liqY = by + bh - liqH - 3;
-            g.FillRectangle(liq, new Rectangle(bx + 5, liqY, bw - 10, liqH));
+            g.FillRectangle(liq, new Rectangle(bx + 5, by + bh - liqH - 3, bw - 10, liqH));
         }
 
-        // Beaker outline
         using var outline = new Pen(Color.FromArgb(100, 150, 180), 1.5f);
-        g.DrawPolygon(outline, trapezoid);
-
-        // Lip
+        g.DrawPolygon(outline, trap);
         g.DrawRectangle(outline, new Rectangle(bx - 3, by - 5, bw + 6, 6));
-
-        // [asset] label
-        using var tagFont  = new Font("Arial", 6f);
-        using var tagBrush = new SolidBrush(Color.FromArgb(140, Color.Cyan));
-        g.DrawString("[beaker]", tagFont, tagBrush, bx - 2, by + bh + 4);
     }
 
     static void DrawBurner(Graphics g, bool lit)
     {
-        int bx = 500, by = 290;
+        int bx = BurnerX, by = BurnerY;
 
-        // Stand — placeholder rectangle
         using var stand = new SolidBrush(Color.FromArgb(80, 80, 90));
         g.FillRectangle(stand, new Rectangle(bx, by, 70, 12));
         g.FillRectangle(stand, new Rectangle(bx + 28, by + 12, 14, 25));
 
         if (lit)
         {
-            // Flame — simple colored ellipses
             using var flameOuter = new SolidBrush(Color.FromArgb(200, 255, 140, 0));
             using var flameInner = new SolidBrush(Color.FromArgb(220, 255, 220, 0));
             g.FillEllipse(flameOuter, bx + 27, by - 18, 16, 22);
             g.FillEllipse(flameInner, bx + 30, by - 12, 10, 14);
         }
-
-        using var tagFont  = new Font("Arial", 6f);
-        using var tagBrush = new SolidBrush(Color.FromArgb(140, Color.Orange));
-        g.DrawString("[burner]", tagFont, tagBrush, bx + 4, by + 14);
     }
 
     // ── Info panel ───────────────────────────────────────────────────────────
 
     static void DrawInfoPanel(Graphics g, GameState state)
     {
-        using var bg = new SolidBrush(Color.FromArgb(15, 25, 15));
+        using var bg = new SolidBrush(Color.FromArgb(170, 8, 20, 8));
         g.FillRectangle(bg, InfoZone);
 
         using var titleFont   = new Font("Arial", 9f, FontStyle.Bold);
-        using var formulaFont = new Font("Consolas", 13f, FontStyle.Bold);
-        using var factFont    = new Font("Arial", 8f);
+        using var formulaFont = new Font("Consolas", 11f, FontStyle.Bold);
+        using var factFont    = new Font("Arial", 7.5f);
         using var white  = new SolidBrush(Color.White);
         using var green  = new SolidBrush(Color.LimeGreen);
-        using var dimGray = new SolidBrush(Color.FromArgb(160, 160, 160));
+        using var dim    = new SolidBrush(Color.FromArgb(160, 160, 160));
 
-        int x = InfoZone.X + 8;
-        int y = InfoZone.Y + 8;
+        int x = InfoZone.X + 7, y = InfoZone.Y + 6;
 
         g.DrawString("COMPOSTO", titleFont, white, x, y);
-        y += 20;
+        y += 18;
 
         if (state.CurrentStep < GameState.Recipe.Length)
         {
             var step = GameState.Recipe[state.CurrentStep];
-
-            // Name
             using var nameFont = new Font("Arial", 8f, FontStyle.Bold);
-            DrawWrapped(g, step.DisplayName, nameFont, white, x, y, InfoZone.Width - 12);
-            y += 30;
-
-            // Formula
+            DrawWrapped(g, step.DisplayName, nameFont, white, x, y, InfoZone.Width - 10);
+            y += 26;
             g.DrawString(step.ChemFormula, formulaFont, green, x, y);
-            y += 30;
-
-            // Fact
-            DrawWrapped(g, step.EducationalFact, factFont, dimGray, x, y, InfoZone.Width - 12);
+            y += 26;
+            DrawWrapped(g, step.EducationalFact, factFont, dim, x, y, InfoZone.Width - 10);
         }
         else
         {
-            g.DrawString("Receita\nconcluída!", titleFont, green, x, y + 10);
+            g.DrawString("Receita\nconcluída!", titleFont, green, x, y + 8);
         }
     }
 
@@ -387,20 +462,19 @@ public static class Renderer
 
     static void DrawActionBar(Graphics g, GameState state, Point mouse)
     {
-        using var bg = new SolidBrush(Color.FromArgb(35, 35, 35));
+        using var bg = new SolidBrush(Color.FromArgb(200, 25, 25, 25));
         g.FillRectangle(bg, ActionZone);
 
         foreach (var kv in HitTester.ButtonBounds)
         {
-            bool hovered  = kv.Value.Contains(mouse);
-            bool enabled  = IsButtonEnabled(kv.Key, state);
+            bool hovered = kv.Value.Contains(mouse);
+            bool enabled = IsButtonEnabled(kv.Key, state);
             DrawButton(g, kv.Key, kv.Value, enabled, hovered);
         }
 
-        // Ingredient name hint at bottom
-        using var hintFont  = new Font("Arial", 8f, FontStyle.Italic);
-        using var hintBrush = new SolidBrush(Color.FromArgb(160, 160, 160));
-        g.DrawString("Clique nos compostos na ordem certa para seguir a receita.", hintFont, hintBrush, 10, 555);
+        using var hintFont  = new Font("Arial", 7.5f, FontStyle.Italic);
+        using var hintBrush = new SolidBrush(Color.FromArgb(140, 140, 140));
+        g.DrawString("Clique nos compostos na ordem certa para seguir a receita.", hintFont, hintBrush, 8, 575);
     }
 
     static bool IsButtonEnabled(string id, GameState state)
@@ -427,10 +501,10 @@ public static class Renderer
             : Color.FromArgb(70, 70, 70);
 
         using var brush = new SolidBrush(fill);
-        g.FillRectangle(brush, r);
+        g.FillRoundedRectangle(brush, r, 8);
 
         using var pen = new Pen(enabled ? Color.White : Color.FromArgb(100, 100, 100), 1.5f);
-        g.DrawRectangle(pen, r);
+        g.DrawRoundedRectangle(pen, r, 8);
 
         using var font  = new Font("Arial", 9f, FontStyle.Bold);
         using var white = new SolidBrush(enabled ? Color.White : Color.FromArgb(120, 120, 120));
@@ -452,8 +526,7 @@ public static class Renderer
         using var white  = new SolidBrush(Color.White);
 
         var sz = g.MeasureString(message, font);
-        float tx = (800 - sz.Width) / 2f;
-        float ty = 270;
+        float tx = (800 - sz.Width) / 2f, ty = 270;
         g.DrawString(message, font, shadow, tx + 2, ty + 2);
         g.DrawString(message, font, white, tx, ty);
     }
@@ -463,16 +536,15 @@ public static class Renderer
         using var overlay = new SolidBrush(Color.FromArgb(200, 0, 50, 0));
         g.FillRectangle(overlay, new Rectangle(0, 0, 800, 600));
 
-        // Border
         using var borderPen = new Pen(Color.Gold, 3);
         g.DrawRectangle(borderPen, new Rectangle(60, 120, 680, 300));
 
         using var titleFont = new Font("Arial", 26f, FontStyle.Bold);
         using var subFont   = new Font("Arial", 16f);
         using var hintFont  = new Font("Arial", 10f, FontStyle.Italic);
-        using var gold      = new SolidBrush(Color.Gold);
-        using var white     = new SolidBrush(Color.White);
-        using var gray      = new SolidBrush(Color.FromArgb(200, 200, 200));
+        using var gold  = new SolidBrush(Color.Gold);
+        using var white = new SolidBrush(Color.White);
+        using var gray  = new SolidBrush(Color.FromArgb(200, 200, 200));
 
         string title = "Heisenberg aprovaria!";
         var tsz = g.MeasureString(title, titleFont);
@@ -496,8 +568,33 @@ public static class Renderer
             Math.Min(255, c.B + amount));
 
     static void DrawWrapped(Graphics g, string text, Font font, Brush brush, int x, int y, int maxWidth)
+        => g.DrawString(text, font, brush, new RectangleF(x, y, maxWidth, 200));
+}
+
+// Extension methods for rounded rectangles
+public static class GraphicsExtensions
+{
+    public static void FillRoundedRectangle(this Graphics g, Brush brush, Rectangle r, int radius)
     {
-        var fmt = new StringFormat();
-        g.DrawString(text, font, brush, new RectangleF(x, y, maxWidth, 200), fmt);
+        using var path = RoundedRect(r, radius);
+        g.FillPath(brush, path);
+    }
+
+    public static void DrawRoundedRectangle(this Graphics g, Pen pen, Rectangle r, int radius)
+    {
+        using var path = RoundedRect(r, radius);
+        g.DrawPath(pen, path);
+    }
+
+    static System.Drawing.Drawing2D.GraphicsPath RoundedRect(Rectangle r, int rad)
+    {
+        int d = rad * 2;
+        var p = new System.Drawing.Drawing2D.GraphicsPath();
+        p.AddArc(r.X, r.Y, d, d, 180, 90);
+        p.AddArc(r.Right - d, r.Y, d, d, 270, 90);
+        p.AddArc(r.Right - d, r.Bottom - d, d, d, 0, 90);
+        p.AddArc(r.X, r.Bottom - d, d, d, 90, 90);
+        p.CloseFigure();
+        return p;
     }
 }
