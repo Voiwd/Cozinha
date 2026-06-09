@@ -24,6 +24,12 @@ public class GameState
     public List<Color> BeakerFill { get; } = new();
     public string LastFeedbackMessage { get; private set; } = "";
 
+    // Beaker is draggable now, so its position is mutable state.
+    public const int BeakerW = 180, BeakerH = 140;
+    static readonly PointF BeakerHome = new(360, 270);
+    public PointF BeakerPos = BeakerHome;
+    public Rectangle BeakerRect => new((int)BeakerPos.X, (int)BeakerPos.Y, BeakerW, BeakerH);
+
     public void PourIntoBeaker(Color liquid) => BeakerFill.Add(liquid);
 
     public static readonly RecipeStep[] Recipe =
@@ -90,6 +96,7 @@ public class GameState
         IsHeated = false;
         BeakerContents.Clear();
         BeakerFill.Clear();
+        BeakerPos = BeakerHome;
         LastFeedbackMessage = "";
     }
 

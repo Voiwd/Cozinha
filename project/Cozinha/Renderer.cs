@@ -27,17 +27,17 @@ public static class Renderer
     static readonly Rectangle InfoZone   = new(610, 195, 185, 120);
     static readonly Rectangle ActionZone = new(0,   462, 800, 138);
 
-    // Beaker draw rect (also the drop target for dragged compounds).
-    public static readonly Rectangle BeakerBounds = new(360, 270, 180, 140);
 
     // ── Entry point ──────────────────────────────────────────────────────────
 
-    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag)
+    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag, bool mixing, int mixPercent)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         DrawScene(g, ingredients, state, mouse, drag);
+
+        if (mixing) DrawMixLabel(g, mixPercent);
 
         if (state.Phase == GamePhase.WrongOrder)
             DrawErrorFlash(g, state.LastFeedbackMessage);
@@ -206,7 +206,7 @@ public static class Renderer
 
     static void DrawBeaker(Graphics g, GameState state)
     {
-        var r = BeakerBounds;
+        var r = state.BeakerRect;
 
         // Glass first. The PNG's interior isn't actually transparent (it's a
         // light cyan), so the liquid has to go *on top* of it or it gets hidden.
@@ -511,6 +511,23 @@ public static class Renderer
     }
 
     // ── Overlays ─────────────────────────────────────────────────────────────
+
+    // Debug HUD for the shake-to-mix mechanic. Only shown while actively shaking.
+    static void DrawMixLabel(Graphics g, int percent)
+    {
+        string text = $"Misturando... {percent}%";
+        using var font = new Font("Arial", 13f, FontStyle.Bold);
+        var sz = g.MeasureString(text, font);
+        float x = (800 - sz.Width) / 2f;
+        const float y = 522;
+
+        var pill = new Rectangle((int)x - 14, (int)y - 5, (int)sz.Width + 28, (int)sz.Height + 8);
+        using var bg = new SolidBrush(Color.FromArgb(170, 0, 0, 0));
+        g.FillRoundedRectangle(bg, pill, 11);
+
+        using var fg = new SolidBrush(Color.White);
+        g.DrawString(text, font, fg, x, y);
+    }
 
     static void DrawErrorFlash(Graphics g, string message)
     {
