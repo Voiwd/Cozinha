@@ -8,10 +8,10 @@ public static class Renderer
     // ── Scene constants ──────────────────────────────────────────────────────
 
     // Shelf top edges in game canvas
-    const int Shelf1Top = 70;
-    const int Shelf2Top = 138;
+    const int Shelf1Top = 80;
+    const int Shelf2Top = 200;
     // The shelf strip lives at roughly y=355 in the 600px estante.png
-    static readonly Rectangle EstanteSrcRect = new(0, 355, 800, 50);
+    static readonly Rectangle EstanteSrcRect = new(0, 375, 800, 50);
 
     // Walter: upper body visible on the right, lower half behind the mesa.
     static readonly Rectangle WalterDest = new(480, 90, 360, 360);
