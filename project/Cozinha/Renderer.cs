@@ -73,6 +73,9 @@ public static class Renderer
         // 6. Beaker and burner on table (on top of everything)
         DrawBurner(g);
         DrawBeaker(g);
+
+        // 7. UI Buttons
+        DrawButtons(g, state.Phase);
     }
 
     static void DrawFallbackBackground(Graphics g)
@@ -197,6 +200,42 @@ public static class Renderer
             const int burnerY = 280; // on the table surface
             g.DrawImage(AssetManager.Burner, new Rectangle(burnerX, burnerY, burnerW, burnerH));
         }
+    }
+
+    static void DrawButtons(Graphics g, GamePhase phase)
+    {
+        // Button style
+        const int btnW = 80;
+        const int btnH = 40;
+        const int cornerRadius = 6;
+
+        // "On" button - red, below the burner
+        DrawButton(g, 145, 420, btnW, btnH, "On", Color.Red, Color.White, cornerRadius);
+
+        // "Ok" button - green, center bottom
+        DrawButton(g, 360, 540, btnW, btnH, "Ok", Color.LimeGreen, Color.Black, cornerRadius);
+
+        // "Recomeçar" button - blue, bottom right
+        DrawButton(g, 700, 540, btnW + 20, btnH, "Recomeçar", Color.RoyalBlue, Color.White, cornerRadius);
+    }
+
+    static void DrawButton(Graphics g, int x, int y, int w, int h, string label, Color bgColor, Color textColor, int radius)
+    {
+        // Draw rounded rectangle background
+        using var bgBrush = new SolidBrush(bgColor);
+        g.FillRoundedRectangle(bgBrush, new Rectangle(x, y, w, h), radius);
+
+        // Draw border
+        using var borderPen = new Pen(Color.FromArgb(40, 40, 40), 1.5f);
+        g.DrawRoundedRectangle(borderPen, new Rectangle(x, y, w, h), radius);
+
+        // Draw text
+        using var font = new Font("Arial", 9f, FontStyle.Bold);
+        using var textBrush = new SolidBrush(textColor);
+        var textSize = g.MeasureString(label, font);
+        g.DrawString(label, font, textBrush,
+            x + (w - textSize.Width) / 2f,
+            y + (h - textSize.Height) / 2f);
     }
 
     // ── Ingredients ──────────────────────────────────────────────────────────
