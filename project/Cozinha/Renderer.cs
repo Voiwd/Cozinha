@@ -205,10 +205,10 @@ public static class Renderer
     static void DrawButtons(Graphics g, GamePhase phase)
     {
         // "On" button - red circle, below the burner
-        DrawCircleButton(g, 200, 435, 35, "On", Color.Red, Color.White);
+        DrawCircleButton(g, 200, 435, 20, "On", Color.Red, Color.White);
 
         // "Ok" button - green circle, center bottom
-        DrawCircleButton(g, 400, 555, 35, "Ok", Color.LimeGreen, Color.Black);
+        DrawCircleButton(g, 400, 555, 20, "Ok", Color.LimeGreen, Color.Black);
 
         // "Recomeçar" button - blue rectangle, bottom right
         DrawRectButton(g, 700, 540, 100, 40, "Recomeçar", Color.RoyalBlue, Color.White);

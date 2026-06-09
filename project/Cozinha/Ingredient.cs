@@ -27,11 +27,11 @@ public static class IngredientFactory
         };
 
         // 3 bottles per shelf; shelf surfaces at y=80 and y=200 (adjusted to match renderer positions)
-        const int bottleW = 80;
-        const int bottleH = 80;
-        int[] xs    = { 65, 295, 525 };
-        int[] ys    = { 80 - bottleH, 80 - bottleH, 80 - bottleH,
-                        200 - bottleH, 200 - bottleH, 200 - bottleH };
+        const int bottleH = 100;
+        const int bottleW = 100;
+        int[] xs    = { 75, 305, 515 };
+        int[] ys    = { 100 - bottleH, 100 - bottleH, 100 - bottleH,
+                        230 - bottleH, 220 - bottleH, 220 - bottleH };
         int[] xsFull = { xs[0], xs[1], xs[2], xs[0], xs[1], xs[2] };
 
         var list = new List<Ingredient>();
