@@ -204,30 +204,46 @@ public static class Renderer
 
     static void DrawButtons(Graphics g, GamePhase phase)
     {
-        // Button style
-        const int btnW = 80;
-        const int btnH = 40;
-        const int cornerRadius = 6;
+        // "On" button - red circle, below the burner
+        DrawCircleButton(g, 200, 435, 35, "On", Color.Red, Color.White);
 
-        // "On" button - red, below the burner
-        DrawButton(g, 145, 420, btnW, btnH, "On", Color.Red, Color.White, cornerRadius);
+        // "Ok" button - green circle, center bottom
+        DrawCircleButton(g, 400, 555, 35, "Ok", Color.LimeGreen, Color.Black);
 
-        // "Ok" button - green, center bottom
-        DrawButton(g, 360, 540, btnW, btnH, "Ok", Color.LimeGreen, Color.Black, cornerRadius);
-
-        // "Recomeçar" button - blue, bottom right
-        DrawButton(g, 700, 540, btnW + 20, btnH, "Recomeçar", Color.RoyalBlue, Color.White, cornerRadius);
+        // "Recomeçar" button - blue rectangle, bottom right
+        DrawRectButton(g, 700, 540, 100, 40, "Recomeçar", Color.RoyalBlue, Color.White);
     }
 
-    static void DrawButton(Graphics g, int x, int y, int w, int h, string label, Color bgColor, Color textColor, int radius)
+    static void DrawCircleButton(Graphics g, int cx, int cy, int radius, string label, Color bgColor, Color textColor)
     {
+        // Draw filled circle background
+        using var bgBrush = new SolidBrush(bgColor);
+        g.FillEllipse(bgBrush, cx - radius, cy - radius, radius * 2, radius * 2);
+
+        // Draw border
+        using var borderPen = new Pen(Color.FromArgb(40, 40, 40), 2f);
+        g.DrawEllipse(borderPen, cx - radius, cy - radius, radius * 2, radius * 2);
+
+        // Draw text
+        using var font = new Font("Arial", 10f, FontStyle.Bold);
+        using var textBrush = new SolidBrush(textColor);
+        var textSize = g.MeasureString(label, font);
+        g.DrawString(label, font, textBrush,
+            cx - textSize.Width / 2f,
+            cy - textSize.Height / 2f);
+    }
+
+    static void DrawRectButton(Graphics g, int x, int y, int w, int h, string label, Color bgColor, Color textColor)
+    {
+        const int cornerRadius = 6;
+
         // Draw rounded rectangle background
         using var bgBrush = new SolidBrush(bgColor);
-        g.FillRoundedRectangle(bgBrush, new Rectangle(x, y, w, h), radius);
+        g.FillRoundedRectangle(bgBrush, new Rectangle(x, y, w, h), cornerRadius);
 
         // Draw border
         using var borderPen = new Pen(Color.FromArgb(40, 40, 40), 1.5f);
-        g.DrawRoundedRectangle(borderPen, new Rectangle(x, y, w, h), radius);
+        g.DrawRoundedRectangle(borderPen, new Rectangle(x, y, w, h), cornerRadius);
 
         // Draw text
         using var font = new Font("Arial", 9f, FontStyle.Bold);
