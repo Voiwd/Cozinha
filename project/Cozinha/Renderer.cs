@@ -8,13 +8,13 @@ public static class Renderer
     // ── Scene constants ──────────────────────────────────────────────────────
 
     // Shelf top edges in game canvas
-    const int Shelf1Top = 90;
-    const int Shelf2Top = 158;
+    const int Shelf1Top = 70;
+    const int Shelf2Top = 138;
     // The shelf strip lives at roughly y=355 in the 600px estante.png
     static readonly Rectangle EstanteSrcRect = new(0, 355, 800, 50);
 
     // Walter: upper body visible on the right, lower half behind the mesa.
-    static readonly Rectangle WalterDest = new(430, 100, 280, 320);
+    static readonly Rectangle WalterDest = new(480, 90, 360, 360);
 
     // Table top surface y
     const int TableTop = 315;
@@ -38,8 +38,8 @@ public static class Renderer
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         DrawScene(g, ingredients, state, mouse);
-        DrawBeaker(g, state);
-        DrawBurner(g, state.IsHeated);
+        // DrawBeaker(g, state);
+        // DrawBurner(g, state.IsHeated);
 
         if (state.Phase == GamePhase.WrongOrder)
             DrawErrorFlash(g, state.LastFeedbackMessage);
