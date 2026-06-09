@@ -9,18 +9,17 @@ public static class AssetManager
 
     public static void Load()
     {
-        Background = LoadAsset("background.png", makeTransparent: false);
-        Estante    = LoadAsset("estante.png",    makeTransparent: true);
-        Mesa       = LoadAsset("mesa.png",       makeTransparent: true);
-        Walter     = LoadAsset("walter.png",     makeTransparent: true);
+        // estante.png, mesa.png and walter.png already carry their own alpha
+        // channel, so we keep it as-is instead of keying out a color.
+        Background = LoadAsset("background.png");
+        Estante    = LoadAsset("estante.png");
+        Mesa       = LoadAsset("mesa.png");
+        Walter     = LoadAsset("walter.png");
     }
 
-    static Bitmap? LoadAsset(string name, bool makeTransparent)
+    static Bitmap? LoadAsset(string name)
     {
         string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", name);
-        if (!File.Exists(path)) return null;
-        var bmp = new Bitmap(path);
-        if (makeTransparent) bmp.MakeTransparent(Color.White);
-        return bmp;
+        return File.Exists(path) ? new Bitmap(path) : null;
     }
 }

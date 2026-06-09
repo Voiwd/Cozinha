@@ -11,8 +11,9 @@ public static class Renderer
     const int Shelf1Bottom = 130;
     const int Shelf2Bottom = 182;
 
-    // Walter destination rect (right side, partially behind table)
-    static readonly Rectangle WalterDest = new(385, 125, 265, 345);
+    // Walter destination rect (right side, lower half hidden behind the table).
+    // The source PNG is a 1080x1080 square, so we keep a 1:1 ratio here.
+    static readonly Rectangle WalterDest = new(470, 120, 340, 340);
 
     // Table top surface y
     const int TableTop = 315;
@@ -79,13 +80,11 @@ public static class Renderer
 
     static void DrawShelves(Graphics g)
     {
+        // estante.png is a full 800x600 overlay that already contains both
+        // shelves in place, so we just paint it over the background.
         if (AssetManager.Estante != null)
         {
-            int h = AssetManager.Estante.Height;
-            // Draw shelf 1: bottom of image at Shelf1Bottom
-            g.DrawImage(AssetManager.Estante, 0, Shelf1Bottom - h, 800, h);
-            // Draw shelf 2: shift down so it lands ~52px lower
-            g.DrawImage(AssetManager.Estante, 0, Shelf2Bottom - h, 800, h);
+            g.DrawImage(AssetManager.Estante, 0, 0, 800, 600);
         }
         else
         {
@@ -148,10 +147,10 @@ public static class Renderer
 
     static void DrawTable(Graphics g)
     {
+        // mesa.png is also a full 800x600 overlay; it covers Walter's lower half.
         if (AssetManager.Mesa != null)
         {
-            int h = AssetManager.Mesa.Height;
-            g.DrawImage(AssetManager.Mesa, 0, 600 - h, 800, h);
+            g.DrawImage(AssetManager.Mesa, 0, 0, 800, 600);
         }
         else
         {
