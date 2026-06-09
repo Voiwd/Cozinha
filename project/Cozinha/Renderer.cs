@@ -7,13 +7,14 @@ public static class Renderer
 {
     // ── Scene constants ──────────────────────────────────────────────────────
 
-    // Shelf bottom edges (where bottles rest)
-    const int Shelf1Bottom = 130;
-    const int Shelf2Bottom = 182;
+    // Shelf top edges in game canvas
+    const int Shelf1Top = 90;
+    const int Shelf2Top = 158;
+    // The shelf strip lives at roughly y=355 in the 600px estante.png
+    static readonly Rectangle EstanteSrcRect = new(0, 355, 800, 50);
 
-    // Walter destination rect (right side, lower half hidden behind the table).
-    // The source PNG is a 1080x1080 square, so we keep a 1:1 ratio here.
-    static readonly Rectangle WalterDest = new(470, 120, 340, 340);
+    // Walter: upper body visible on the right, lower half behind the mesa.
+    static readonly Rectangle WalterDest = new(430, 100, 280, 320);
 
     // Table top surface y
     const int TableTop = 315;
@@ -37,11 +38,8 @@ public static class Renderer
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         DrawScene(g, ingredients, state, mouse);
-        DrawStepPanel(g, state);
         DrawBeaker(g, state);
         DrawBurner(g, state.IsHeated);
-        DrawInfoPanel(g, state);
-        DrawActionBar(g, state, mouse);
 
         if (state.Phase == GamePhase.WrongOrder)
             DrawErrorFlash(g, state.LastFeedbackMessage);
@@ -80,16 +78,18 @@ public static class Renderer
 
     static void DrawShelves(Graphics g)
     {
-        // estante.png is a full 800x600 overlay that already contains both
-        // shelves in place, so we just paint it over the background.
+        // Draw the shelf strip (bottom slice of estante.png) at two positions.
         if (AssetManager.Estante != null)
         {
-            g.DrawImage(AssetManager.Estante, 0, 0, 800, 600);
+            var dst1 = new Rectangle(0, Shelf1Top, 800, EstanteSrcRect.Height);
+            var dst2 = new Rectangle(0, Shelf2Top, 800, EstanteSrcRect.Height);
+            g.DrawImage(AssetManager.Estante, dst1, EstanteSrcRect, GraphicsUnit.Pixel);
+            g.DrawImage(AssetManager.Estante, dst2, EstanteSrcRect, GraphicsUnit.Pixel);
         }
         else
         {
-            DrawFallbackShelf(g, Shelf1Bottom - 22);
-            DrawFallbackShelf(g, Shelf2Bottom - 22);
+            DrawFallbackShelf(g, Shelf1Top);
+            DrawFallbackShelf(g, Shelf2Top);
         }
     }
 
