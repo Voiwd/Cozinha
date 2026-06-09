@@ -19,7 +19,12 @@ public class GameState
     public int WalterExpression { get; private set; } = 0; // 0=neutro 1=feliz 2=irritado
     public bool IsHeated { get; private set; } = false;
     public List<string> BeakerContents { get; } = new();
+    // Colors poured in via drag-and-drop. Separate from BeakerContents because
+    // dragging isn't tied to the recipe order yet.
+    public List<Color> BeakerFill { get; } = new();
     public string LastFeedbackMessage { get; private set; } = "";
+
+    public void PourIntoBeaker(Color liquid) => BeakerFill.Add(liquid);
 
     public static readonly RecipeStep[] Recipe =
     {
@@ -84,6 +89,7 @@ public class GameState
         WalterExpression = 0;
         IsHeated = false;
         BeakerContents.Clear();
+        BeakerFill.Clear();
         LastFeedbackMessage = "";
     }
 

@@ -27,20 +27,17 @@ public static class Renderer
     static readonly Rectangle InfoZone   = new(610, 195, 185, 120);
     static readonly Rectangle ActionZone = new(0,   462, 800, 138);
 
-    // Beaker and burner on table surface
-    const int BeakerX = 230, BeakerY = 240, BeakerW = 55, BeakerH = 65;
-    const int BurnerX = 215, BurnerY = 295;
+    // Beaker draw rect (also the drop target for dragged compounds).
+    public static readonly Rectangle BeakerBounds = new(360, 270, 180, 140);
 
     // ── Entry point ──────────────────────────────────────────────────────────
 
-    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse)
+    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        DrawScene(g, ingredients, state, mouse);
-        // DrawBeaker(g, state);
-        // DrawBurner(g, state.IsHeated);
+        DrawScene(g, ingredients, state, mouse, drag);
 
         if (state.Phase == GamePhase.WrongOrder)
             DrawErrorFlash(g, state.LastFeedbackMessage);
@@ -50,7 +47,7 @@ public static class Renderer
 
     // ── Scene ────────────────────────────────────────────────────────────────
 
-    static void DrawScene(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse)
+    static void DrawScene(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse, DragController drag)
     {
         // 1. Background
         if (AssetManager.Background != null)
@@ -61,8 +58,14 @@ public static class Renderer
         // 2. Shelves (on the wall, behind Walter)
         DrawShelves(g);
 
-        // 3. Ingredients sitting on shelves (behind Walter)
-        DrawIngredients(g, ingredients, state, mouse);
+        // 3. Ingredients sitting on shelves (behind Walter). The one being
+        //    dragged is skipped here — it's drawn at the cursor instead.
+        DrawIngredients(g, ingredients, state, mouse, drag.Held);
+
+        // Dragged compound, low half of the screen → behind Walter but above the
+        // shelves. Reads as "lowering it down onto the table".
+        if (drag.Active && drag.CenterY > 300)
+            DrawDragged(g, drag);
 
         // 4. Walter (in front of wall and shelves, behind table)
         DrawWalter(g, state.WalterExpression);
@@ -72,10 +75,35 @@ public static class Renderer
 
         // 6. Beaker and burner on table (on top of everything)
         DrawBurner(g);
-        DrawBeaker(g);
+        DrawBeaker(g, state);
 
         // 7. UI Buttons
         DrawButtons(g, state.Phase);
+
+        // Dragged compound, upper half → on top of Walter (held up high).
+        if (drag.Active && drag.CenterY <= 300)
+            DrawDragged(g, drag);
+    }
+
+    static void DrawDragged(Graphics g, DragController drag)
+    {
+        var ing = drag.Held;
+        if (ing == null) return;
+        var r = drag.CurrentRect();
+
+        // soft drop shadow so it reads as "picked up"
+        using (var shadow = new SolidBrush(Color.FromArgb(60, 0, 0, 0)))
+            g.FillEllipse(shadow, r.X + 8, r.Bottom - 10, r.Width - 16, 14);
+
+        var asset = string.IsNullOrEmpty(ing.AssetName) ? null
+            : AssetManager.GetIngredientAsset(ing.AssetName);
+        if (asset != null)
+            g.DrawImage(asset, r);
+        else
+        {
+            using var body = new SolidBrush(ing.BottleColor);
+            g.FillRectangle(body, r);
+        }
     }
 
     static void DrawFallbackBackground(Graphics g)
@@ -176,17 +204,40 @@ public static class Renderer
         g.DrawRoundedRectangle(pen, new Rectangle(1, TableTop, 798, TableBottom - TableTop), 6);
     }
 
-    static void DrawBeaker(Graphics g)
+    static void DrawBeaker(Graphics g, GameState state)
     {
-        // Beaker positioned in the center of the table, where reactions happen
+        var r = BeakerBounds;
+
+        // Glass first. The PNG's interior isn't actually transparent (it's a
+        // light cyan), so the liquid has to go *on top* of it or it gets hidden.
         if (AssetManager.Beaker != null)
+            g.DrawImage(AssetManager.Beaker, r);
+
+        int n = state.BeakerFill.Count;
+        if (n > 0)
         {
-            const int beakerW = 180;
-            const int beakerH = 140;
-            const int beakerX = 360; // center of 800px canvas
-            const int beakerY = 270; // on the table surface
-            g.DrawImage(AssetManager.Beaker, new Rectangle(beakerX, beakerY, beakerW, beakerH));
+            Color liq = BlendFill(state.BeakerFill);
+            float frac = Math.Min(n / 5f, 1f); // ~5 pours fills it
+            int interiorW = (int)(r.Width * 0.46f);
+            int interiorX = r.X + (r.Width - interiorW) / 2;
+            int bottom = r.Y + (int)(r.Height * 0.84f);
+            int maxH = (int)(r.Height * 0.52f);
+            int h = (int)(maxH * frac);
+            // semi-transparent so the glass shading still reads through it
+            using var brush = new SolidBrush(Color.FromArgb(190, liq));
+            g.FillRectangle(brush, interiorX, bottom - h, interiorW, h);
+            // surface meniscus highlight
+            using var top = new SolidBrush(Color.FromArgb(150, 255, 255, 255));
+            g.FillRectangle(top, interiorX, bottom - h, interiorW, 3);
         }
+    }
+
+    static Color BlendFill(List<Color> colors)
+    {
+        long r = 0, gg = 0, b = 0;
+        foreach (var c in colors) { r += c.R; gg += c.G; b += c.B; }
+        int n = colors.Count;
+        return Color.FromArgb((int)(r / n), (int)(gg / n), (int)(b / n));
     }
 
     static void DrawBurner(Graphics g)
@@ -256,7 +307,7 @@ public static class Renderer
 
     // ── Ingredients ──────────────────────────────────────────────────────────
 
-    static void DrawIngredients(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse)
+    static void DrawIngredients(Graphics g, List<Ingredient> ingredients, GameState state, Point mouse, Ingredient? held)
     {
         string? nextIngId = null;
         if (state.Phase == GamePhase.Playing && state.CurrentStep < GameState.Recipe.Length)
@@ -267,6 +318,7 @@ public static class Renderer
 
         foreach (var ing in ingredients)
         {
+            if (ReferenceEquals(ing, held)) continue; // being dragged
             bool hovered = ing.Bounds.Contains(mouse);
             bool isNext  = ing.Id == nextIngId;
             DrawBottle(g, ing, isNext, hovered);
@@ -364,62 +416,6 @@ public static class Renderer
                 g.DrawString(line, stepFont, dimColor, StepZone.X + 7, y);
 
             y += 14;
-        }
-    }
-
-    // ── Beaker & Burner ───────────────────────────────────────────────────────
-
-    static void DrawBeaker(Graphics g, GameState state)
-    {
-        int bx = BeakerX, by = BeakerY, bw = BeakerW, bh = BeakerH;
-
-        if (state.IsHeated)
-        {
-            using var glow = new SolidBrush(Color.FromArgb(60, 255, 120, 0));
-            g.FillEllipse(glow, bx - 8, by + bh - 10, bw + 16, 20);
-        }
-
-        Point[] trap =
-        {
-            new(bx,      by),
-            new(bx + bw, by),
-            new(bx + bw - 5, by + bh),
-            new(bx + 5,  by + bh),
-        };
-        using var glass = new SolidBrush(Color.FromArgb(160, 200, 220, 240));
-        g.FillPolygon(glass, trap);
-
-        int liquidSteps = state.BeakerContents.Count;
-        if (liquidSteps > 0)
-        {
-            float fraction = Math.Min(liquidSteps / 4f, 1f);
-            int liqH = (int)(bh * fraction);
-            Color liqColor = liquidSteps >= 4
-                ? Color.FromArgb(180, 100, 200, 100)
-                : Color.FromArgb(160, 100, 160, 220);
-            using var liq = new SolidBrush(liqColor);
-            g.FillRectangle(liq, new Rectangle(bx + 5, by + bh - liqH - 3, bw - 10, liqH));
-        }
-
-        using var outline = new Pen(Color.FromArgb(100, 150, 180), 1.5f);
-        g.DrawPolygon(outline, trap);
-        g.DrawRectangle(outline, new Rectangle(bx - 3, by - 5, bw + 6, 6));
-    }
-
-    static void DrawBurner(Graphics g, bool lit)
-    {
-        int bx = BurnerX, by = BurnerY;
-
-        using var stand = new SolidBrush(Color.FromArgb(80, 80, 90));
-        g.FillRectangle(stand, new Rectangle(bx, by, 70, 12));
-        g.FillRectangle(stand, new Rectangle(bx + 28, by + 12, 14, 25));
-
-        if (lit)
-        {
-            using var flameOuter = new SolidBrush(Color.FromArgb(200, 255, 140, 0));
-            using var flameInner = new SolidBrush(Color.FromArgb(220, 255, 220, 0));
-            g.FillEllipse(flameOuter, bx + 27, by - 18, 16, 22);
-            g.FillEllipse(flameInner, bx + 30, by - 12, 10, 14);
         }
     }
 
