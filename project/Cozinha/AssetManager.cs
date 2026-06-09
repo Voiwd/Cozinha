@@ -6,6 +6,7 @@ public static class AssetManager
     public static Bitmap? Estante    { get; private set; }
     public static Bitmap? Mesa       { get; private set; }
     public static Bitmap? Walter     { get; private set; }
+    public static Bitmap? Beaker     { get; private set; }
 
     static Dictionary<string, Bitmap?> IngredientAssets { get; } = new();
 
@@ -15,6 +16,7 @@ public static class AssetManager
         Estante    = LoadAsset("estante.png",    keyWhite: true);
         Mesa       = LoadAsset("mesa.png",       keyWhite: true);
         Walter     = LoadAsset("walter.png",     keyWhite: false); // real alpha channel
+        Beaker     = LoadAsset("bequer.png",     keyWhite: true);
 
         // Load ingredient compound images
         LoadIngredientAsset("NaOH.png");

@@ -69,6 +69,9 @@ public static class Renderer
 
         // 5. Table (covers Walter's lower half)
         DrawTable(g);
+
+        // 6. Beaker on table (on top of everything)
+        DrawBeaker(g);
     }
 
     static void DrawFallbackBackground(Graphics g)
@@ -167,6 +170,19 @@ public static class Renderer
         g.FillRectangle(body, new Rectangle(0, TableTop + 20, 800, TableBottom - TableTop - 20));
         using var pen = new Pen(Color.FromArgb(120, 85, 30), 2);
         g.DrawRoundedRectangle(pen, new Rectangle(1, TableTop, 798, TableBottom - TableTop), 6);
+    }
+
+    static void DrawBeaker(Graphics g)
+    {
+        // Beaker positioned in the center of the table, where reactions happen
+        if (AssetManager.Beaker != null)
+        {
+            const int beakerW = 80;
+            const int beakerH = 100;
+            const int beakerX = 360; // center of 800px canvas
+            const int beakerY = 270; // on the table surface
+            g.DrawImage(AssetManager.Beaker, new Rectangle(beakerX, beakerY, beakerW, beakerH));
+        }
     }
 
     // ── Ingredients ──────────────────────────────────────────────────────────
