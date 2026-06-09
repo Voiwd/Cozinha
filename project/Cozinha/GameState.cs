@@ -26,7 +26,7 @@ public class GameState
 
     // Beaker is draggable now, so its position is mutable state.
     public const int BeakerW = 180, BeakerH = 140;
-    static readonly PointF BeakerHome = new(360, 270);
+    public static readonly PointF BeakerHome = new(360, 270);
     public PointF BeakerPos = BeakerHome;
     public Rectangle BeakerRect => new((int)BeakerPos.X, (int)BeakerPos.Y, BeakerW, BeakerH);
 

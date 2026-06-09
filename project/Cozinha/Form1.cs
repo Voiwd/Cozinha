@@ -12,6 +12,7 @@ public partial class Form1 : Form
     private readonly ShakeMixer _mixer = new();
     private readonly System.Windows.Forms.Timer _shakeTimer;
     private bool _beakerHeld;
+    private bool _beakerReturning;
     private Point _beakerGrab;     // cursor offset inside the beaker when grabbed
     private Point _lastShakeMouse; // for per-move dx
 
@@ -36,7 +37,9 @@ public partial class Form1 : Form
         _dragTimer = new System.Windows.Forms.Timer { Interval = 16 }; // ~60fps
         _dragTimer.Tick += (_, _) =>
         {
-            if (!_drag.TickReturn()) _dragTimer.Stop();
+            bool busy = _drag.TickReturn();
+            if (_beakerReturning) busy |= TickBeakerReturn();
+            if (!busy) _dragTimer.Stop();
             Invalidate();
         };
 
@@ -91,6 +94,7 @@ public partial class Form1 : Form
         if (_state.BeakerRect.Contains(e.Location))
         {
             _beakerHeld = true;
+            _beakerReturning = false; // grabbed mid-glide → cancel the return
             _beakerGrab = new Point(e.X - (int)_state.BeakerPos.X, e.Y - (int)_state.BeakerPos.Y);
             _lastShakeMouse = e.Location;
             _shakeTimer.Start();
@@ -114,7 +118,9 @@ public partial class Form1 : Form
 
         if (_beakerHeld)
         {
-            _beakerHeld = false; // leave it wherever it was let go
+            _beakerHeld = false;
+            _beakerReturning = true; // glide back to its spot on the table
+            _dragTimer.Start();
             Invalidate();
             return;
         }
@@ -127,6 +133,22 @@ public partial class Form1 : Form
         else
             _dragTimer.Start();     // missed → glide home
         Invalidate();
+    }
+
+    // Lerp the beaker back to its home spot. Returns false once it's there.
+    private bool TickBeakerReturn()
+    {
+        var home = GameState.BeakerHome;
+        var p = _state.BeakerPos;
+        p = new PointF(p.X + (home.X - p.X) * 0.25f, p.Y + (home.Y - p.Y) * 0.25f);
+        if (Math.Abs(p.X - home.X) < 0.6f && Math.Abs(p.Y - home.Y) < 0.6f)
+        {
+            _state.BeakerPos = home;
+            _beakerReturning = false;
+            return false;
+        }
+        _state.BeakerPos = p;
+        return true;
     }
 
     protected override void OnKeyDown(KeyEventArgs e)
