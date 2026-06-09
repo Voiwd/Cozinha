@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace Cozinha;
 
@@ -191,6 +192,39 @@ public static class Renderer
     {
         var r = ing.Bounds;
 
+        // Try to draw ingredient asset image
+        if (!string.IsNullOrEmpty(ing.AssetName))
+        {
+            var asset = AssetManager.GetIngredientAsset(ing.AssetName);
+            if (asset != null)
+            {
+                // Draw image with slight opacity if hovered
+                var oldState = g.Save();
+                if (hovered)
+                {
+                    var cm = new ColorMatrix();
+                    cm.Matrix33 = 0.85f;
+                    var ia = new ImageAttributes();
+                    ia.SetColorMatrix(cm);
+                    g.DrawImage(asset, r, 0, 0, asset.Width, asset.Height, GraphicsUnit.Pixel, ia);
+                }
+                else
+                {
+                    g.DrawImage(asset, r);
+                }
+                g.Restore(oldState);
+
+                // Draw highlight border if next ingredient
+                if (isNext)
+                {
+                    using var border = new Pen(Color.Gold, 2.5f);
+                    g.DrawRectangle(border, r);
+                }
+                return;
+            }
+        }
+
+        // Fallback: draw GDI+ bottle
         Color fill = hovered ? Lighten(ing.BottleColor, 30) : ing.BottleColor;
         using var body = new SolidBrush(fill);
         g.FillRectangle(body, r);
@@ -199,8 +233,8 @@ public static class Renderer
         using var liq = new SolidBrush(ing.LiquidColor);
         g.FillRectangle(liq, new Rectangle(r.X + 3, r.Bottom - liqH - 3, r.Width - 6, liqH));
 
-        using var border = new Pen(isNext ? Color.Gold : Color.FromArgb(80, 80, 80), isNext ? 2.5f : 1f);
-        g.DrawRectangle(border, r);
+        using var border2 = new Pen(isNext ? Color.Gold : Color.FromArgb(80, 80, 80), isNext ? 2.5f : 1f);
+        g.DrawRectangle(border2, r);
 
         using var font = new Font("Consolas", 7f, FontStyle.Bold);
         using var txt  = new SolidBrush(Color.Black);
