@@ -24,6 +24,14 @@ public partial class Form1 : Form
             _state.RecoverFromWrongOrder();
             Invalidate();
         };
+
+        MusicPlayer.Play("YTDown_YouTube_Breaking-Bad-Intro_Media_F1HNuAE9WdU_007_128k.mp3");
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        MusicPlayer.Stop();
+        base.OnFormClosed(e);
     }
 
     protected override void OnPaint(PaintEventArgs e)
