@@ -71,6 +71,40 @@ public class GameState
     // Passo atual da receita (null quando já concluiu tudo).
     public RecipeStep? Current => CurrentStep < Recipe.Length ? Recipe[CurrentStep] : null;
 
+    // O que o Walter fala pro jogador agora — instrução do passo atual, mas com
+    // a soberba do Heisenberg. É a fonte do balão de diálogo (Renderer).
+    public string WalterLine()
+    {
+        if (Phase == GamePhase.Success)
+            return "Isso, sim, é química. Pureza de 99.1% — Heisenberg aprovaria.";
+
+        if (Phase == GamePhase.WrongOrder)
+            return "Não, não, não. Você não improvisa a minha receita. Cada passo na ordem exata. De novo.";
+
+        var step = Current;
+        if (step == null) return "";
+
+        if (step.Type == StepType.AddIngredient)
+            return step.Id switch
+            {
+                "NaOH"   => "Começamos com hidróxido de sódio. Base pura, dissolve qualquer coisa. Arraste o frasco até o béquer.",
+                "CH3NH2" => "Agora a metilamina. O cheiro entrega, mas é ela que faz a mágica acontecer. Despeje no béquer.",
+                "RedP"   => "Fósforo vermelho. A pureza mora na dose certa, nada de pressa. Adicione ao béquer.",
+                "I2"     => "Iodo. Lento, deliberado, preciso — como tudo que importa nesta cozinha. Coloque no béquer.",
+                _        => $"Adicione {step.DisplayName} ao béquer.",
+            };
+
+        return step.Id switch
+        {
+            "HEAT"  => BurnerEmpty
+                ? "Acabou o gás. Sem calor não há reação, e eu não trabalho com amadores. Recomece."
+                : "Calor. A química não espera por covardes. Acenda o bico e segure o béquer sobre a chama.",
+            "MIX"   => "Agora misture. Segure o béquer e chacoalhe até ficar homogêneo. Devagar, com respeito.",
+            "SERVE" => "Está pronto. Nada menos que perfeito. Clique em Servir e entregue a minha obra.",
+            _       => step.DisplayName,
+        };
+    }
+
     // Devolve true se o ingrediente foi aceito (pra só então despejar a cor).
     public bool TryIngredient(string id)
     {

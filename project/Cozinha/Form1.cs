@@ -14,6 +14,11 @@ public partial class Form1 : Form
 
     private readonly ParticleSystem _particles = new();
     private readonly System.Windows.Forms.Timer _animTimer; // particle sim @ ~60fps
+
+    // Diálogo do Walter com efeito de máquina de escrever.
+    private readonly System.Windows.Forms.Timer _typeTimer;
+    private string _walterTarget = "";
+    private int _walterChars;
     private GamePhase _lastPhase = GamePhase.Playing;       // edge-detect WrongOrder
     private int _lastStep;                                  // detect step changes
 
@@ -67,6 +72,25 @@ public partial class Form1 : Form
         _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
         _animTimer.Tick += (_, _) => StepParticles();
         _animTimer.Start();
+
+        _typeTimer = new System.Windows.Forms.Timer { Interval = 28 };
+        _typeTimer.Tick += (_, _) =>
+        {
+            string target = _state.WalterLine();
+            if (target != _walterTarget)
+            {
+                // Frase mudou (novo passo, erro, etc.) → recomeça a digitação.
+                _walterTarget = target;
+                _walterChars = 0;
+                Invalidate();
+            }
+            else if (_walterChars < _walterTarget.Length)
+            {
+                _walterChars = Math.Min(_walterTarget.Length, _walterChars + 1);
+                Invalidate();
+            }
+        };
+        _typeTimer.Start();
     }
 
     // One frame of particle simulation: burn fuel, fire emitters off the current
@@ -149,7 +173,7 @@ public partial class Form1 : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        Renderer.DrawAll(e.Graphics, _state, _ingredients, _mousePos, _drag, _mixer.Mixing, _mixer.Percent);
+        Renderer.DrawAll(e.Graphics, _state, _ingredients, _mousePos, _drag, _mixer.Mixing, _mixer.Percent, _walterTarget, _walterChars);
         _particles.Draw(e.Graphics);
     }
 

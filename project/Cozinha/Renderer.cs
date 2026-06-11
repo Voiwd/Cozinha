@@ -30,14 +30,12 @@ public static class Renderer
 
     // ── Entry point ──────────────────────────────────────────────────────────
 
-    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag, bool mixing, int mixPercent)
+    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag, bool mixing, int mixPercent, string walterFull, int walterVisible)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
         DrawScene(g, ingredients, state, mouse, drag);
-
-        if (state.Phase == GamePhase.Playing) DrawStepHint(g, state);
 
         if (mixing) DrawMixLabel(g, mixPercent);
 
@@ -45,6 +43,11 @@ public static class Renderer
             DrawErrorFlash(g, state.LastFeedbackMessage);
         else if (state.Phase == GamePhase.Success)
             DrawSuccessOverlay(g);
+
+        // Walter fala com o jogador (balão saindo dele, texto datilografado).
+        // Desenhado por último para ficar legível mesmo sobre o flash de erro.
+        if (state.Phase != GamePhase.Success)
+            DrawWalterBubble(g, state, walterFull, walterVisible);
     }
 
     // ── Scene ────────────────────────────────────────────────────────────────
@@ -555,42 +558,92 @@ public static class Renderer
 
     // ── Overlays ─────────────────────────────────────────────────────────────
 
-    // Pílula no topo dizendo o que o jogador precisa fazer agora. É o feedback
-    // de estado do gameloop — sem ela o jogador não sabe qual o próximo passo.
-    static void DrawStepHint(Graphics g, GameState state)
+    // Balão de diálogo do Walter. O texto chega datilografado (walterVisible é
+    // quantos caracteres de walterFull já apareceram), mas o balão é dimensionado
+    // pela frase inteira para não ficar pulando de tamanho enquanto digita.
+    static void DrawWalterBubble(Graphics g, GameState state, string walterFull, int walterVisible)
     {
-        var step = state.Current;
-        if (step == null) return;
+        if (string.IsNullOrEmpty(walterFull)) return;
 
-        string text = step.Type == StepType.AddIngredient
-            ? $"Arraste para o béquer: {step.DisplayName}"
-            : step.Id switch
+        using var font = new Font("Segoe UI", 11f, FontStyle.Regular);
+
+        const float maxTextW = 300f;
+        const int pad = 14;
+        int lineH = font.Height + 3;
+
+        var lines = WrapText(g, walterFull, font, maxTextW);
+        if (lines.Count == 0) return;
+
+        float textW = 0;
+        foreach (var ln in lines)
+            textW = Math.Max(textW, g.MeasureString(ln, font).Width);
+
+        int bubbleW = (int)textW + pad * 2;
+        int bubbleH = lines.Count * lineH + pad * 2 - 2;
+
+        // Ancorado no canto superior, à esquerda da cabeça do Walter, com a
+        // cauda apontando para ele (Walter ocupa o lado direito da cena).
+        int bubbleRight = 545;
+        int bubbleX = Math.Max(12, bubbleRight - bubbleW);
+        int bubbleY = 22;
+        var bubble = new Rectangle(bubbleX, bubbleY, bubbleW, bubbleH);
+
+        // Cauda do balão apontando para o Walter.
+        var tail = new[]
+        {
+            new Point(bubble.Right - 50, bubble.Bottom - 6),
+            new Point(bubble.Right - 18, bubble.Bottom - 6),
+            new Point(590, 150),
+        };
+
+        using var bg     = new SolidBrush(Color.FromArgb(238, 250, 250, 252));
+        using var border = new Pen(Color.FromArgb(220, 40, 45, 60), 2f);
+
+        g.FillPolygon(bg, tail);
+        g.FillRoundedRectangle(bg, bubble, 14);
+        g.DrawPolygon(border, tail);
+        // Redesenha o corpo por cima para esconder a borda da cauda dentro do balão.
+        g.FillRoundedRectangle(bg, new Rectangle(bubble.X + 1, bubble.Y + 1, bubble.Width - 2, bubble.Height - 2), 13);
+        g.DrawRoundedRectangle(border, bubble, 14);
+
+        // Texto datilografado: percorre as linhas consumindo os caracteres já
+        // revelados (incluindo o espaço/quebra que une as palavras).
+        using var fg = new SolidBrush(Color.FromArgb(28, 30, 42));
+        int shown = walterVisible;
+        float ty = bubble.Y + pad - 1;
+        foreach (var ln in lines)
+        {
+            if (shown <= 0) break;
+            string draw = shown >= ln.Length ? ln : ln[..shown];
+            g.DrawString(draw, font, fg, bubble.X + pad, ty);
+            shown -= ln.Length + 1;
+            ty += lineH;
+        }
+
+        // Contador de progresso discreto no rodapé do balão.
+        string prog = $"passo {Math.Min(state.CurrentStep + 1, GameState.Recipe.Length)}/{GameState.Recipe.Length}";
+        using var pfont  = new Font("Segoe UI", 8f, FontStyle.Bold);
+        using var pbrush = new SolidBrush(Color.FromArgb(150, 90, 95, 110));
+        var psz = g.MeasureString(prog, pfont);
+        g.DrawString(prog, pfont, pbrush, bubble.Right - psz.Width - 8, bubble.Bottom - psz.Height - 3);
+    }
+
+    static List<string> WrapText(Graphics g, string text, Font font, float maxWidth)
+    {
+        var lines = new List<string>();
+        var cur = "";
+        foreach (var w in text.Split(' '))
+        {
+            string test = cur.Length == 0 ? w : cur + " " + w;
+            if (cur.Length > 0 && g.MeasureString(test, font).Width > maxWidth)
             {
-                "HEAT"  => state.BurnerEmpty ? "Sem gás! Recomece para reabastecer." : "Acenda o bico (On) para aquecer",
-                "MIX"   => "Segure e chacoalhe o béquer para misturar",
-                "SERVE" => "Clique em Servir para entregar o produto",
-                _       => step.DisplayName,
-            };
-
-        using var font = new Font("Arial", 11f, FontStyle.Bold);
-        var sz = g.MeasureString(text, font);
-        float x = (800 - sz.Width) / 2f;
-        const float y = 12;
-
-        var pill = new Rectangle((int)x - 16, (int)y - 4, (int)sz.Width + 32, (int)sz.Height + 8);
-        using var bg = new SolidBrush(Color.FromArgb(190, 20, 20, 35));
-        g.FillRoundedRectangle(bg, pill, 13);
-        using var border = new Pen(Color.FromArgb(150, 255, 215, 90), 1.5f);
-        g.DrawRoundedRectangle(border, pill, 13);
-
-        using var fg = new SolidBrush(Color.White);
-        g.DrawString(text, font, fg, x, y);
-
-        // Pequeno contador de progresso à direita.
-        string prog = $"{state.CurrentStep}/{GameState.Recipe.Length}";
-        using var pfont = new Font("Arial", 9f, FontStyle.Bold);
-        using var pbrush = new SolidBrush(Color.FromArgb(200, 255, 215, 90));
-        g.DrawString(prog, pfont, pbrush, pill.Right + 8, y + 1);
+                lines.Add(cur);
+                cur = w;
+            }
+            else cur = test;
+        }
+        if (cur.Length > 0) lines.Add(cur);
+        return lines;
     }
 
     // Debug HUD for the shake-to-mix mechanic. Only shown while actively shaking.
