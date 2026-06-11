@@ -15,7 +15,8 @@ public static class Renderer
     static readonly Rectangle EstanteSrcRect = new(0, 375, 800, 50);
 
     // Walter: upper body visible on the right, lower half behind the mesa.
-    static readonly Rectangle WalterDest = new(480, 90, 360, 360);
+    // >>> AJUSTE A IMAGEM DA CABEÇA AQUI: posição (x, y) e tamanho (largura, altura). <<<
+    public static readonly Rectangle WalterDest = new(480, 90, 360, 360);
 
     // Table top surface y
     const int TableTop = 315;

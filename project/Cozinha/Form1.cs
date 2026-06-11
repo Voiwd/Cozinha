@@ -57,6 +57,14 @@ public partial class Form1 : Form
         if (e.Button != MouseButtons.Left) return;
         if (_state.Phase == GamePhase.WrongOrder) return;
 
+        // DEBUG: clicar no Walter alterna o rosto (normal -> feliz -> triste).
+        if (Renderer.WalterDest.Contains(e.Location) && e.Y < 385)
+        {
+            _state.DebugCycleFace();
+            Invalidate();
+            return;
+        }
+
         string? ingId = HitTester.HitIngredient(e.Location, _ingredients);
         if (ingId != null)
         {
@@ -87,6 +95,12 @@ public partial class Form1 : Form
         if (e.KeyCode == Keys.R)
         {
             _state.Reset();
+            Invalidate();
+        }
+        else if (e.KeyCode == Keys.F)
+        {
+            // DEBUG: tecla F também alterna o rosto do Walter.
+            _state.DebugCycleFace();
             Invalidate();
         }
     }
