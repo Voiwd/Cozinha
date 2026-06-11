@@ -593,12 +593,13 @@ public static class Renderer
             bubbleY = Math.Max(252, 370 - bubbleH);
         var bubble = new Rectangle(bubbleX, bubbleY, Math.Min(bubbleW, 232), bubbleH);
 
-        // Cauda do balão apontando para a boca do Walter (área superior-direita).
+        // Cauda do balão apontando para a boca do Walter (centro-superior do WalterDest).
+        // Walter: x=480-840, y=90-450 → boca ~(630, 195).
         var tail = new[]
         {
-            new Point(bubble.X + 10, bubble.Y + 8),
-            new Point(bubble.X + 30, bubble.Y + 8),
-            new Point(520, 175),
+            new Point(bubble.X + 30, bubble.Y + 4),
+            new Point(bubble.X + 65, bubble.Y + 4),
+            new Point(630, 195),
         };
 
         using var bg     = new SolidBrush(Color.FromArgb(238, 250, 250, 252));
