@@ -567,8 +567,11 @@ public static class Renderer
 
         using var font = new Font("Segoe UI", 11f, FontStyle.Regular);
 
-        const float maxTextW = 300f;
-        const int pad = 14;
+        // Largura máxima limitada para caber entre x≈555 e a borda direita (800).
+        // Fica abaixo das prateleiras (y>245) e à direita do béquer (x>550),
+        // na área visual do Walter — sem colidir com compostos nem com o béquer.
+        const float maxTextW = 215f;
+        const int pad = 12;
         int lineH = font.Height + 3;
 
         var lines = WrapText(g, walterFull, font, maxTextW);
@@ -581,19 +584,21 @@ public static class Renderer
         int bubbleW = (int)textW + pad * 2;
         int bubbleH = lines.Count * lineH + pad * 2 - 2;
 
-        // Ancorado no canto superior, à esquerda da cabeça do Walter, com a
-        // cauda apontando para ele (Walter ocupa o lado direito da cena).
-        int bubbleRight = 545;
-        int bubbleX = Math.Max(12, bubbleRight - bubbleW);
-        int bubbleY = 22;
-        var bubble = new Rectangle(bubbleX, bubbleY, bubbleW, bubbleH);
+        // Âncora: canto superior-esquerdo do balão em (558, 252).
+        // Zona livre: x=555-795, y=252-370 (abaixo da prateleira 2, direita do béquer).
+        int bubbleX = 558;
+        int bubbleY = 252;
+        // Se o balão transbordar para baixo (muitas linhas), sobe um pouco.
+        if (bubbleY + bubbleH > 370)
+            bubbleY = Math.Max(252, 370 - bubbleH);
+        var bubble = new Rectangle(bubbleX, bubbleY, Math.Min(bubbleW, 232), bubbleH);
 
-        // Cauda do balão apontando para o Walter.
+        // Cauda do balão apontando para a boca do Walter (área superior-direita).
         var tail = new[]
         {
-            new Point(bubble.Right - 50, bubble.Bottom - 6),
-            new Point(bubble.Right - 18, bubble.Bottom - 6),
-            new Point(590, 150),
+            new Point(bubble.X + 10, bubble.Y + 8),
+            new Point(bubble.X + 30, bubble.Y + 8),
+            new Point(520, 175),
         };
 
         using var bg     = new SolidBrush(Color.FromArgb(238, 250, 250, 252));
