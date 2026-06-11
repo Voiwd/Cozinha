@@ -80,6 +80,11 @@ public partial class Form1 : Form
         // contar quando enfim chegar no passo de misturar.
         if (_state.CurrentStep != _lastStep)
         {
+            if (_state.CurrentStep > _lastStep && _lastStep >= 0)
+            {
+                var r = _state.BeakerRect;
+                _particles.EmitStepComplete(r.X + r.Width / 2f, r.Y + r.Height / 2f);
+            }
             _mixer.Reset();
             _lastStep = _state.CurrentStep;
         }
@@ -109,7 +114,7 @@ public partial class Form1 : Form
         if (beakerOverFlame && _state.BeakerFill.Count > 0)
         {
             var r = _state.BeakerRect;
-            _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 1);
+            _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 2);
         }
 
         // Faíscas/fumaça ao misturar (chacoalhando o béquer).

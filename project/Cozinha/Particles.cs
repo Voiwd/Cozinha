@@ -53,8 +53,8 @@ public class ParticleSystem
                     p.Size += 18f * dt;          // billows out
                     break;
                 case ParticleKind.Bubble:
-                    p.VY -= 14f * dt;            // buoyancy
-                    p.X += (float)Math.Sin((_t + p.Seed) * 7f) * 14f * dt;
+                    p.VY -= 28f * dt;            // buoyancy
+                    p.X += (float)Math.Sin((_t + p.Seed) * 7f) * 22f * dt;
                     break;
                 case ParticleKind.Spark:
                     p.VY += 260f * dt;           // gravity
@@ -125,10 +125,39 @@ public class ParticleSystem
             _ps.Add(new Particle
             {
                 Kind = ParticleKind.Bubble,
-                X = x + Rand(-18, 18), Y = y + Rand(-2, 4),
-                VX = Rand(-6, 6), VY = Rand(-26, -14),
-                Life = Rand(0.6f, 1.1f), MaxLife = 1.1f,
-                Size = Rand(3, 7), Seed = Rand(0, 100),
+                X = x + Rand(-28, 28), Y = y + Rand(-2, 4),
+                VX = Rand(-22, 22), VY = Rand(-55, -28),
+                Life = Rand(0.7f, 1.3f), MaxLife = 1.3f,
+                Size = Rand(8, 18), Seed = Rand(0, 100),
+            });
+    }
+
+    public void EmitStepComplete(float cx, float cy)
+    {
+        // burst of sparks radiating in a wide arc upward
+        for (int i = 0; i < 60; i++)
+        {
+            double a = _rng.NextDouble() * Math.PI * 2;
+            float speed = Rand(150, 420);
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Spark,
+                X = cx, Y = cy,
+                VX = (float)Math.Cos(a) * speed,
+                VY = (float)Math.Sin(a) * speed,
+                Life = Rand(0.5f, 1.0f), MaxLife = 1.0f,
+                Size = Rand(4, 9), Seed = Rand(0, 100),
+            });
+        }
+        // green-tinted smoke puffs
+        for (int i = 0; i < 12; i++)
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Smoke,
+                X = cx + Rand(-20, 20), Y = cy + Rand(-10, 10),
+                VX = Rand(-25, 25), VY = Rand(-70, -30),
+                Life = Rand(0.8f, 1.5f), MaxLife = 1.5f,
+                Size = Rand(14, 24), Seed = Rand(0, 100),
             });
     }
 
