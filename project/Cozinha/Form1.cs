@@ -24,6 +24,14 @@ public partial class Form1 : Form
             _state.RecoverFromWrongOrder();
             Invalidate();
         };
+
+        MusicPlayer.Play("YTDown_YouTube_Breaking-Bad-Intro_Media_F1HNuAE9WdU_007_128k.mp3");
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        MusicPlayer.Stop();
+        base.OnFormClosed(e);
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -48,6 +56,14 @@ public partial class Form1 : Form
         base.OnMouseClick(e);
         if (e.Button != MouseButtons.Left) return;
         if (_state.Phase == GamePhase.WrongOrder) return;
+
+        // DEBUG: clicar no Walter alterna o rosto (normal -> feliz -> triste).
+        if (Renderer.WalterDest.Contains(e.Location) && e.Y < 385)
+        {
+            _state.DebugCycleFace();
+            Invalidate();
+            return;
+        }
 
         string? ingId = HitTester.HitIngredient(e.Location, _ingredients);
         if (ingId != null)
@@ -79,6 +95,12 @@ public partial class Form1 : Form
         if (e.KeyCode == Keys.R)
         {
             _state.Reset();
+            Invalidate();
+        }
+        else if (e.KeyCode == Keys.F)
+        {
+            // DEBUG: tecla F também alterna o rosto do Walter.
+            _state.DebugCycleFace();
             Invalidate();
         }
     }
