@@ -19,6 +19,8 @@ public partial class Form1 : Form
 
     // Bocal do bico de Bunsen (de onde sai a chama) e topo do béquer.
     private static readonly PointF BurnerNozzle = new(170, 292);
+    // Zona da chama: área acima do bocal onde o béquer precisa estar para aquecer.
+    private static readonly Rectangle BurnerFlameZone = new(125, 228, 90, 65);
     private bool _beakerHeld;
     private bool _beakerReturning;
     private Point _beakerGrab;     // cursor offset inside the beaker when grabbed
@@ -86,6 +88,10 @@ public partial class Form1 : Form
         // Chama saindo do bocal enquanto o bico estiver aceso.
         if (_state.BurnerOn)
             _particles.EmitFire(BurnerNozzle.X, BurnerNozzle.Y, 3);
+
+        // Béquer sobre a chama com bico aceso → avança o passo de aquecer.
+        if (_state.BurnerOn && BurnerFlameZone.IntersectsWith(_state.BeakerRect))
+            _state.OnBurnerLit();
 
         // Bolhas subindo do béquer enquanto o bico aquece o líquido.
         if (_state.BurnerOn && _state.BeakerFill.Count > 0)
@@ -155,12 +161,11 @@ public partial class Form1 : Form
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left || _drag.Active || _beakerHeld) return;
 
-        // Botão "On" do bico de Bunsen. Acender = passo Aquecer.
+        // Botão "On" do bico de Bunsen — apenas acende/apaga, não avança o passo.
+        // O avanço ocorre no tick quando o béquer estiver sobre a chama.
         if (HitTester.OnButton.Contains(e.Location))
         {
-            bool willLight = !_state.BurnerOn && !_state.BurnerEmpty;
             _state.ToggleBurner();
-            if (willLight) _state.OnBurnerLit();
             Invalidate();
             return;
         }
