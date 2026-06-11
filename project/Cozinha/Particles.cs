@@ -2,7 +2,7 @@ using System.Drawing.Drawing2D;
 
 namespace Cozinha;
 
-public enum ParticleKind { Fire, Smoke, Bubble, Spark, ErrorPuff }
+public enum ParticleKind { Fire, Smoke, Bubble, Spark, ErrorPuff, Confetti }
 
 // Lightweight particle. Life runs from MaxLife down to 0; most visuals fade
 // or shrink as a function of Life/MaxLife.
@@ -14,6 +14,9 @@ public class Particle
     public float MaxLife;
     public float Size;
     public float Seed;        // per-particle phase for wobble
+    public float Angle;       // rotation in radians (confetti)
+    public float AngularV;    // rotation speed rad/s
+    public Color Tint;        // used by confetti
     public ParticleKind Kind;
 
     public float Frac => MaxLife <= 0 ? 0 : Life / MaxLife; // 1 → 0 over lifetime
@@ -64,6 +67,12 @@ public class ParticleSystem
                     p.VX *= 0.93f;
                     p.VY = p.VY * 0.93f + 40f * dt;
                     break;
+                case ParticleKind.Confetti:
+                    p.VY += 320f * dt;           // gravity
+                    p.VX += (float)Math.Sin((_t + p.Seed) * 3.5f) * 18f * dt; // drift
+                    p.VX *= 0.995f;
+                    p.Angle += p.AngularV * dt;
+                    break;
             }
         }
     }
@@ -81,6 +90,7 @@ public class ParticleSystem
                 case ParticleKind.Bubble: DrawBubble(g, p); break;
                 case ParticleKind.Spark:  DrawSpark(g, p);  break;
                 case ParticleKind.ErrorPuff: DrawErrorPuff(g, p); break;
+                case ParticleKind.Confetti:  DrawConfetti(g, p);  break;
             }
         }
         g.SmoothingMode = oldMode;
@@ -134,32 +144,85 @@ public class ParticleSystem
 
     public void EmitStepComplete(float cx, float cy)
     {
-        // burst of sparks radiating in a wide arc upward
-        for (int i = 0; i < 60; i++)
+        // confetti burst upward from the beaker
+        for (int i = 0; i < 55; i++)
         {
-            double a = _rng.NextDouble() * Math.PI * 2;
-            float speed = Rand(150, 420);
+            double a = -Math.PI / 2 + ((_rng.NextDouble() - 0.5) * Math.PI * 1.4);
+            float speed = Rand(180, 480);
             _ps.Add(new Particle
             {
-                Kind = ParticleKind.Spark,
-                X = cx, Y = cy,
+                Kind = ParticleKind.Confetti,
+                X = cx + Rand(-18, 18), Y = cy,
                 VX = (float)Math.Cos(a) * speed,
                 VY = (float)Math.Sin(a) * speed,
-                Life = Rand(0.5f, 1.0f), MaxLife = 1.0f,
-                Size = Rand(4, 9), Seed = Rand(0, 100),
+                Life = Rand(1.2f, 2.2f), MaxLife = 2.2f,
+                Size = Rand(6, 12), Seed = Rand(0, 100),
+                Angle = Rand(0, 6.28f),
+                AngularV = Rand(-8f, 8f),
+                Tint = ConfettiColor(),
             });
         }
-        // green-tinted smoke puffs
-        for (int i = 0; i < 12; i++)
-            _ps.Add(new Particle
-            {
-                Kind = ParticleKind.Smoke,
-                X = cx + Rand(-20, 20), Y = cy + Rand(-10, 10),
-                VX = Rand(-25, 25), VY = Rand(-70, -30),
-                Life = Rand(0.8f, 1.5f), MaxLife = 1.5f,
-                Size = Rand(14, 24), Seed = Rand(0, 100),
-            });
     }
+
+    public void EmitVictoryBorders(int screenW, int screenH)
+    {
+        // top edge — shoot downward
+        for (int i = 0; i < 120; i++)
+        {
+            float x = Rand(0, screenW);
+            _ps.Add(MakeConfetti(x, Rand(-10, 0),
+                Rand(-60, 60), Rand(80, 320),
+                Rand(1.5f, 3.0f)));
+        }
+        // left edge — shoot right
+        for (int i = 0; i < 60; i++)
+        {
+            float y = Rand(0, screenH * 0.6f);
+            _ps.Add(MakeConfetti(Rand(-10, 0), y,
+                Rand(120, 340), Rand(-200, 50),
+                Rand(1.5f, 3.0f)));
+        }
+        // right edge — shoot left
+        for (int i = 0; i < 60; i++)
+        {
+            float y = Rand(0, screenH * 0.6f);
+            _ps.Add(MakeConfetti(screenW + Rand(0, 10), y,
+                Rand(-340, -120), Rand(-200, 50),
+                Rand(1.5f, 3.0f)));
+        }
+        // bottom corners — shoot inward-up
+        for (int i = 0; i < 40; i++)
+        {
+            _ps.Add(MakeConfetti(Rand(0, 80), screenH + Rand(0, 10),
+                Rand(60, 260), Rand(-450, -200), Rand(1.5f, 3.0f)));
+            _ps.Add(MakeConfetti(screenW - Rand(0, 80), screenH + Rand(0, 10),
+                Rand(-260, -60), Rand(-450, -200), Rand(1.5f, 3.0f)));
+        }
+    }
+
+    Particle MakeConfetti(float x, float y, float vx, float vy, float life) => new Particle
+    {
+        Kind = ParticleKind.Confetti,
+        X = x, Y = y, VX = vx, VY = vy,
+        Life = life, MaxLife = life,
+        Size = Rand(7, 14), Seed = Rand(0, 100),
+        Angle = Rand(0, 6.28f),
+        AngularV = Rand(-10f, 10f),
+        Tint = ConfettiColor(),
+    };
+
+    static readonly Color[] _palette =
+    [
+        Color.FromArgb(255, 255, 80,  80),   // vermelho
+        Color.FromArgb(255, 255, 200, 40),   // amarelo
+        Color.FromArgb(255, 60,  220, 120),  // verde
+        Color.FromArgb(255, 80,  160, 255),  // azul
+        Color.FromArgb(255, 220, 80,  255),  // roxo
+        Color.FromArgb(255, 255, 140, 40),   // laranja
+        Color.FromArgb(255, 255, 255, 255),  // branco
+    ];
+
+    Color ConfettiColor() => _palette[_rng.Next(_palette.Length)];
 
     public void EmitMix(float x, float y)
     {
@@ -244,6 +307,25 @@ public class ParticleSystem
         float s = p.Size * (0.6f + p.Frac * 0.6f);
         using var b = new SolidBrush(Color.FromArgb(Math.Max(0, a), 255, 60, 40));
         g.FillEllipse(b, p.X - s / 2, p.Y - s / 2, s, s);
+    }
+
+    static void DrawConfetti(Graphics g, Particle p)
+    {
+        int alpha = (int)(255 * Math.Min(1f, p.Frac * 3f)); // fade only near end of life
+        if (alpha <= 0) return;
+        var c = Color.FromArgb(Math.Max(0, alpha), p.Tint.R, p.Tint.G, p.Tint.B);
+
+        float w = p.Size;
+        float h = p.Size * 0.45f;
+
+        var old = g.Transform;
+        g.TranslateTransform(p.X, p.Y);
+        g.RotateTransform(p.Angle * 57.2958f);  // rad → deg
+
+        using var brush = new SolidBrush(c);
+        g.FillRectangle(brush, -w / 2, -h / 2, w, h);
+
+        g.Transform = old;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -124,6 +124,10 @@ public partial class Form1 : Form
             _particles.EmitMix(r.X + r.Width / 2f, r.Y + r.Height * 0.42f);
         }
 
+        // Confete de vitória ao completar a receita.
+        if (_state.Phase == GamePhase.Success && _lastPhase != GamePhase.Success)
+            _particles.EmitVictoryBorders(ClientSize.Width, ClientSize.Height);
+
         // Explosão de partículas + timer de recuperação quando entra em erro.
         if (_state.Phase == GamePhase.WrongOrder && _lastPhase != GamePhase.WrongOrder)
         {
