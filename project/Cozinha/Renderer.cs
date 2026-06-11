@@ -16,7 +16,10 @@ public static class Renderer
 
     // Walter: upper body visible on the right, lower half behind the mesa.
     // >>> AJUSTE A IMAGEM DA CABEÇA AQUI: posição (x, y) e tamanho (largura, altura). <<<
-    public static readonly Rectangle WalterDest = new(480, 90, 360, 360);
+    public static readonly Rectangle WalterDest = new(620, 150, 160, 160);
+
+    // >>> AJUSTE O CORPO DO WALTER AQUI: posição (x, y) e tamanho (largura, altura). <<<
+    public static readonly Rectangle WalterBodyDest = new(560, 250, 280, 280);
 
     // Table top surface y
     const int TableTop = 315;
@@ -112,6 +115,10 @@ public static class Renderer
 
     static void DrawWalter(Graphics g, int expression)
     {
+        // Corpo primeiro (atrás), depois a cabeça por cima.
+        if (AssetManager.WalterBody != null)
+            g.DrawImage(AssetManager.WalterBody, WalterBodyDest);
+
         // Troca a "cabeça"/expressão conforme o estado; volta para walter.png se faltar.
         var head = AssetManager.GetWalterHead(expression) ?? AssetManager.Walter;
         if (head != null)
