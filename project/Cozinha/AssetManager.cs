@@ -1,3 +1,5 @@
+using System.Drawing.Drawing2D;
+
 namespace Cozinha;
 
 public static class AssetManager
@@ -18,10 +20,13 @@ public static class AssetManager
 
     public static void Load()
     {
-        Background = LoadAsset("background.png", keyWhite: false);
-        Estante    = LoadAsset("estante.png",    keyWhite: true);
-        Mesa       = LoadAsset("mesa.png",       keyWhite: true);
-        Walter     = LoadAsset("walter.png",      keyWhite: false); // real alpha channel
+        // Os PNGs vêm em 1080x1080, mas são desenhados bem menores. Pré-escalar
+        // no load deixa o DrawImage de cada frame ser um blit direto em vez de
+        // reamostrar a bitmap gigante a cada movimento de mouse.
+        Background = LoadAsset("background.png", keyWhite: false);               // já 800x600
+        Estante    = LoadAsset("estante.png",    keyWhite: true);                // pequena
+        Mesa       = LoadAsset("mesa.png",       keyWhite: true);                // já 800x600
+        Walter     = LoadAsset("walter.png",     keyWhite: false, 360, 360);     // real alpha channel
         WalterBody = LoadAsset("Corpo Walter.png", keyWhite: false); // corpo (sem cabeça)
         Hat        = LoadAsset("Chapeu.png",        keyWhite: true);  // chapéu (fundo branco)
 
@@ -29,8 +34,8 @@ public static class AssetManager
         WalterHeads[0] = LoadAsset("Walter Normal.png", keyWhite: false);
         WalterHeads[1] = LoadAsset("walter feliz.png",  keyWhite: false);
         WalterHeads[2] = LoadAsset("Walter Triste.png", keyWhite: false);
-        Beaker     = LoadAsset("bequer.png",     keyWhite: true);
-        Burner     = LoadAsset("bicobunsen.png", keyWhite: true);
+        Beaker     = LoadAsset("bequer.png",     keyWhite: true,  180, 140);
+        Burner     = LoadAsset("bicobunsen.png", keyWhite: true,  100, 120);
 
         // Load ingredient compound images
         LoadIngredientAsset("NaOH.png");
@@ -57,15 +62,32 @@ public static class AssetManager
 
     static void LoadIngredientAsset(string name)
     {
-        IngredientAssets[name] = LoadAsset(name, keyWhite: true); // Most compounds have white keying
+        // Frascos são desenhados a 100x100 (ver Ingredient.Bounds).
+        IngredientAssets[name] = LoadAsset(name, keyWhite: true, 100, 100);
     }
 
-    static Bitmap? LoadAsset(string name, bool keyWhite)
+    static Bitmap? LoadAsset(string name, bool keyWhite, int targetW = 0, int targetH = 0)
     {
         string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", name);
         if (!File.Exists(path)) return null;
         var bmp = new Bitmap(path);
         if (keyWhite) bmp.MakeTransparent(Color.White);
+        if (targetW > 0 && targetH > 0 && (bmp.Width != targetW || bmp.Height != targetH))
+            bmp = ScaleTo(bmp, targetW, targetH);
         return bmp;
+    }
+
+    // Reamostra uma vez, com qualidade alta, num bitmap ARGB do tamanho final.
+    static Bitmap ScaleTo(Bitmap src, int w, int h)
+    {
+        var dst = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(dst))
+        {
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.PixelOffsetMode   = PixelOffsetMode.HighQuality;
+            g.DrawImage(src, new Rectangle(0, 0, w, h));
+        }
+        src.Dispose();
+        return dst;
     }
 }
