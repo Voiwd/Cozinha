@@ -7,6 +7,7 @@ public static class AssetManager
     public static Bitmap? Mesa         { get; private set; }
     public static Bitmap? Walter       { get; private set; }
     public static Bitmap? WalterBody    { get; private set; }
+    public static Bitmap? Hat           { get; private set; }
     public static Bitmap? Beaker       { get; private set; }
     public static Bitmap? Burner       { get; private set; }
 
@@ -22,6 +23,7 @@ public static class AssetManager
         Mesa       = LoadAsset("mesa.png",       keyWhite: true);
         Walter     = LoadAsset("walter.png",      keyWhite: false); // real alpha channel
         WalterBody = LoadAsset("Corpo Walter.png", keyWhite: false); // corpo (sem cabeça)
+        Hat        = LoadAsset("Chapeu.png",        keyWhite: true);  // chapéu (fundo branco)
 
         // Cabeças trocáveis conforme a reação do Walter
         WalterHeads[0] = LoadAsset("Walter Normal.png", keyWhite: false);
