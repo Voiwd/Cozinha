@@ -68,14 +68,18 @@ public class GameState
         new() { Type = StepType.PerformAction, Id = "SERVE",  DisplayName = "Servir",             ChemFormula = "->",     EducationalFact = "Produto final obtido\ncom 99.1% de pureza." },
     };
 
-    public void TryIngredient(string id)
+    // Passo atual da receita (null quando já concluiu tudo).
+    public RecipeStep? Current => CurrentStep < Recipe.Length ? Recipe[CurrentStep] : null;
+
+    // Devolve true se o ingrediente foi aceito (pra só então despejar a cor).
+    public bool TryIngredient(string id)
     {
-        if (Phase != GamePhase.Playing) return;
+        if (Phase != GamePhase.Playing) return false;
         var step = Recipe[CurrentStep];
         if (step.Type != StepType.AddIngredient)
         {
             SetWrong("Precisa realizar uma ação primeiro!");
-            return;
+            return false;
         }
         if (step.Id == id)
         {
@@ -83,10 +87,36 @@ public class GameState
             CurrentStep++;
             WalterExpression = 0;
             CheckComplete();
+            return true;
         }
-        else
+        SetWrong("Ingrediente errado! Walter não aprovaria...");
+        return false;
+    }
+
+    // Chamado quando o jogador acende o bico. Só avança se aquecer for o passo
+    // atual — fora disso o bico é um objeto livre (não pune, não progride).
+    public void OnBurnerLit()
+    {
+        if (Phase != GamePhase.Playing) return;
+        if (Current is { Type: StepType.PerformAction, Id: "HEAT" })
         {
-            SetWrong("Ingrediente errado! Walter não aprovaria...");
+            IsHeated = true;
+            CurrentStep++;
+            WalterExpression = 0;
+            CheckComplete();
+        }
+    }
+
+    // Chamado quando o béquer chega a 100% de mistura. Mesma ideia: só conta
+    // quando misturar é o passo atual.
+    public void OnMixed()
+    {
+        if (Phase != GamePhase.Playing) return;
+        if (Current is { Type: StepType.PerformAction, Id: "MIX" })
+        {
+            CurrentStep++;
+            WalterExpression = 0;
+            CheckComplete();
         }
     }
 

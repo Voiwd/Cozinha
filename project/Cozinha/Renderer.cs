@@ -37,6 +37,8 @@ public static class Renderer
 
         DrawScene(g, ingredients, state, mouse, drag);
 
+        if (state.Phase == GamePhase.Playing) DrawStepHint(g, state);
+
         if (mixing) DrawMixLabel(g, mixPercent);
 
         if (state.Phase == GamePhase.WrongOrder)
@@ -269,8 +271,15 @@ public static class Renderer
         DrawCircleButton(g, 200, 435, 20, state.BurnerEmpty ? "X" : "On", onColor, Color.White);
         DrawFuelGauge(g, state);
 
-        // "Ok" button - green circle, center bottom
-        DrawCircleButton(g, 400, 555, 20, "Ok", Color.LimeGreen, Color.Black);
+        // "Servir" - entrega o produto. Verde aceso quando é a vez de servir.
+        bool serveTurn = state.Current is { Type: StepType.PerformAction, Id: "SERVE" };
+        Color serveColor = serveTurn ? Color.LimeGreen : Color.FromArgb(110, 130, 110);
+        if (serveTurn)
+        {
+            using var halo = new SolidBrush(Color.FromArgb(70, 80, 255, 120));
+            g.FillEllipse(halo, 400 - 34, 555 - 34, 68, 68);
+        }
+        DrawCircleButton(g, 400, 555, 24, "Servir", serveColor, Color.Black);
 
         // "Recomeçar" button - blue rectangle, bottom right
         DrawRectButton(g, 700, 540, 100, 40, "Recomeçar", Color.RoyalBlue, Color.White);
@@ -545,6 +554,44 @@ public static class Renderer
     }
 
     // ── Overlays ─────────────────────────────────────────────────────────────
+
+    // Pílula no topo dizendo o que o jogador precisa fazer agora. É o feedback
+    // de estado do gameloop — sem ela o jogador não sabe qual o próximo passo.
+    static void DrawStepHint(Graphics g, GameState state)
+    {
+        var step = state.Current;
+        if (step == null) return;
+
+        string text = step.Type == StepType.AddIngredient
+            ? $"Arraste para o béquer: {step.DisplayName}"
+            : step.Id switch
+            {
+                "HEAT"  => state.BurnerEmpty ? "Sem gás! Recomece para reabastecer." : "Acenda o bico (On) para aquecer",
+                "MIX"   => "Segure e chacoalhe o béquer para misturar",
+                "SERVE" => "Clique em Servir para entregar o produto",
+                _       => step.DisplayName,
+            };
+
+        using var font = new Font("Arial", 11f, FontStyle.Bold);
+        var sz = g.MeasureString(text, font);
+        float x = (800 - sz.Width) / 2f;
+        const float y = 12;
+
+        var pill = new Rectangle((int)x - 16, (int)y - 4, (int)sz.Width + 32, (int)sz.Height + 8);
+        using var bg = new SolidBrush(Color.FromArgb(190, 20, 20, 35));
+        g.FillRoundedRectangle(bg, pill, 13);
+        using var border = new Pen(Color.FromArgb(150, 255, 215, 90), 1.5f);
+        g.DrawRoundedRectangle(border, pill, 13);
+
+        using var fg = new SolidBrush(Color.White);
+        g.DrawString(text, font, fg, x, y);
+
+        // Pequeno contador de progresso à direita.
+        string prog = $"{state.CurrentStep}/{GameState.Recipe.Length}";
+        using var pfont = new Font("Arial", 9f, FontStyle.Bold);
+        using var pbrush = new SolidBrush(Color.FromArgb(200, 255, 215, 90));
+        g.DrawString(prog, pfont, pbrush, pill.Right + 8, y + 1);
+    }
 
     // Debug HUD for the shake-to-mix mechanic. Only shown while actively shaking.
     static void DrawMixLabel(Graphics g, int percent)

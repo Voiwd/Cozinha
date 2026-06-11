@@ -15,6 +15,7 @@ public partial class Form1 : Form
     private readonly ParticleSystem _particles = new();
     private readonly System.Windows.Forms.Timer _animTimer; // particle sim @ ~60fps
     private GamePhase _lastPhase = GamePhase.Playing;       // edge-detect WrongOrder
+    private int _lastStep;                                  // detect step changes
 
     // Bocal do bico de Bunsen (de onde sai a chama) e topo do béquer.
     private static readonly PointF BurnerNozzle = new(170, 292);
@@ -70,17 +71,27 @@ public partial class Form1 : Form
         const float dt = 0.016f;
         _state.TickBurner(dt);
 
+        // Mudou de passo → zera a mistura, pra "chacoalhar antes da hora" não
+        // contar quando enfim chegar no passo de misturar.
+        if (_state.CurrentStep != _lastStep)
+        {
+            _mixer.Reset();
+            _lastStep = _state.CurrentStep;
+        }
+
+        // Misturar terminou (béquer chacoalhado até 100% no passo certo).
+        if (_state.Current is { Type: StepType.PerformAction, Id: "MIX" } && _mixer.Percent >= 100)
+            _state.OnMixed();
+
         // Chama saindo do bocal enquanto o bico estiver aceso.
         if (_state.BurnerOn)
             _particles.EmitFire(BurnerNozzle.X, BurnerNozzle.Y, 3);
 
-        // Bolhas subindo do béquer enquanto aquecido.
-        if (_state.IsHeated)
+        // Bolhas subindo do béquer enquanto o bico aquece o líquido.
+        if (_state.BurnerOn && _state.BeakerFill.Count > 0)
         {
             var r = _state.BeakerRect;
-            float surfX = r.X + r.Width / 2f;
-            float surfY = r.Y + r.Height * 0.50f;
-            _particles.EmitBubble(surfX, surfY, 1);
+            _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 1);
         }
 
         // Faíscas/fumaça ao misturar (chacoalhando o béquer).
@@ -90,9 +101,13 @@ public partial class Form1 : Form
             _particles.EmitMix(r.X + r.Width / 2f, r.Y + r.Height * 0.42f);
         }
 
-        // Explosão de partículas quando entra em erro de ordem.
+        // Explosão de partículas + timer de recuperação quando entra em erro.
         if (_state.Phase == GamePhase.WrongOrder && _lastPhase != GamePhase.WrongOrder)
+        {
             _particles.EmitErrorBurst(400, 300);
+            _feedbackTimer.Stop();
+            _feedbackTimer.Start();
+        }
         _lastPhase = _state.Phase;
 
         _particles.Update(dt);
@@ -140,10 +155,29 @@ public partial class Form1 : Form
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left || _drag.Active || _beakerHeld) return;
 
-        // Botão "On" do bico de Bunsen.
+        // Botão "On" do bico de Bunsen. Acender = passo Aquecer.
         if (HitTester.OnButton.Contains(e.Location))
         {
+            bool willLight = !_state.BurnerOn && !_state.BurnerEmpty;
             _state.ToggleBurner();
+            if (willLight) _state.OnBurnerLit();
+            Invalidate();
+            return;
+        }
+
+        // Botão "Servir" → entrega o produto (passo final).
+        if (HitTester.ServeButton.Contains(e.Location))
+        {
+            _state.TryAction("SERVE");
+            Invalidate();
+            return;
+        }
+
+        // Botão "Recomeçar".
+        if (HitTester.ResetButton.Contains(e.Location))
+        {
+            _state.Reset();
+            _mixer.Reset();
             Invalidate();
             return;
         }
@@ -187,7 +221,11 @@ public partial class Form1 : Form
 
         var dropped = _drag.Drop(_state.BeakerRect);
         if (dropped != null)
-            _state.PourIntoBeaker(dropped.LiquidColor);
+        {
+            // Só despeja a cor se for o ingrediente certo da vez.
+            if (_state.TryIngredient(dropped.Id))
+                _state.PourIntoBeaker(dropped.LiquidColor);
+        }
         else
             _dragTimer.Start();     // missed → glide home
         Invalidate();
