@@ -114,7 +114,10 @@ public partial class Form1 : Form
         if (beakerOverFlame && _state.BeakerFill.Count > 0)
         {
             var r = _state.BeakerRect;
-            _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 2);
+            var bubbleColor = _state.BeakerFill.Count > 0
+                ? _state.BeakerFill[^1]
+                : Color.FromArgb(235, 245, 255);
+            _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 2, bubbleColor);
         }
 
         // Faíscas/fumaça ao misturar (chacoalhando o béquer).

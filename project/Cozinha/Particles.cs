@@ -129,7 +129,7 @@ public class ParticleSystem
             });
     }
 
-    public void EmitBubble(float x, float y, int n)
+    public void EmitBubble(float x, float y, int n, Color tint)
     {
         for (int i = 0; i < n; i++)
             _ps.Add(new Particle
@@ -139,6 +139,7 @@ public class ParticleSystem
                 VX = Rand(-22, 22), VY = Rand(-55, -28),
                 Life = Rand(0.7f, 1.3f), MaxLife = 1.3f,
                 Size = Rand(8, 18), Seed = Rand(0, 100),
+                Tint = tint,
             });
     }
 
@@ -287,9 +288,14 @@ public class ParticleSystem
 
     static void DrawBubble(Graphics g, Particle p)
     {
-        int a = (int)(170 * p.Frac);
-        using var pen = new Pen(Color.FromArgb(Math.Max(0, a), 235, 245, 255), 1.4f);
+        int a = (int)(200 * p.Frac);
+        var c = p.Tint == default ? Color.FromArgb(235, 245, 255) : p.Tint;
+        using var pen = new Pen(Color.FromArgb(Math.Max(0, a), c.R, c.G, c.B), 2f);
         g.DrawEllipse(pen, p.X - p.Size / 2, p.Y - p.Size / 2, p.Size, p.Size);
+        // inner glow tinted
+        using var fill = new SolidBrush(Color.FromArgb(Math.Max(0, a / 4), c.R, c.G, c.B));
+        g.FillEllipse(fill, p.X - p.Size / 2, p.Y - p.Size / 2, p.Size, p.Size);
+        // specular highlight
         using var hi = new SolidBrush(Color.FromArgb(Math.Max(0, a / 2), 255, 255, 255));
         g.FillEllipse(hi, p.X - p.Size / 4, p.Y - p.Size / 3, p.Size / 3, p.Size / 3);
     }
