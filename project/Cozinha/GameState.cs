@@ -19,6 +19,31 @@ public class GameState
     public int WalterExpression { get; private set; } = 0; // 0=neutro 1=feliz 2=irritado
     public bool IsHeated { get; private set; } = false;
     public List<string> BeakerContents { get; } = new();
+
+    // ── Bico de Bunsen ────────────────────────────────────────────────────────
+    // Combustível finito: o bico só acende enquanto houver gás. Se o jogador
+    // deixar ligado à toa, o tanque esvazia e não dá pra acender de novo (até
+    // dar Reset).
+    const float FuelBurnRate = 7f; // unidades por segundo → ~14s de chama total
+    public bool BurnerOn { get; private set; }
+    public float Fuel { get; private set; } = 100f;
+    public bool BurnerEmpty => Fuel <= 0f;
+
+    // Liga/desliga. Devolve true se a ação teve efeito (pra disparar feedback).
+    public bool ToggleBurner()
+    {
+        if (BurnerOn) { BurnerOn = false; return true; }
+        if (BurnerEmpty) return false; // sem gás, não acende
+        BurnerOn = true;
+        return true;
+    }
+
+    public void TickBurner(float dt)
+    {
+        if (!BurnerOn) return;
+        Fuel -= dt * FuelBurnRate;
+        if (Fuel <= 0f) { Fuel = 0f; BurnerOn = false; } // acabou o gás
+    }
     // Colors poured in via drag-and-drop. Separate from BeakerContents because
     // dragging isn't tied to the recipe order yet.
     public List<Color> BeakerFill { get; } = new();
@@ -94,6 +119,8 @@ public class GameState
         CurrentStep = 0;
         WalterExpression = 0;
         IsHeated = false;
+        BurnerOn = false;
+        Fuel = 100f;
         BeakerContents.Clear();
         BeakerFill.Clear();
         BeakerPos = BeakerHome;

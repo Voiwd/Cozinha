@@ -11,6 +11,13 @@ public partial class Form1 : Form
 
     private readonly ShakeMixer _mixer = new();
     private readonly System.Windows.Forms.Timer _shakeTimer;
+
+    private readonly ParticleSystem _particles = new();
+    private readonly System.Windows.Forms.Timer _animTimer; // particle sim @ ~60fps
+    private GamePhase _lastPhase = GamePhase.Playing;       // edge-detect WrongOrder
+
+    // Bocal do bico de Bunsen (de onde sai a chama) e topo do béquer.
+    private static readonly PointF BurnerNozzle = new(170, 292);
     private bool _beakerHeld;
     private bool _beakerReturning;
     private Point _beakerGrab;     // cursor offset inside the beaker when grabbed
@@ -50,12 +57,55 @@ public partial class Form1 : Form
             if (!_beakerHeld && _mixer.Idle) _shakeTimer.Stop(); // fully faded
             Invalidate();
         };
+
+        _animTimer = new System.Windows.Forms.Timer { Interval = 16 };
+        _animTimer.Tick += (_, _) => StepParticles();
+        _animTimer.Start();
+    }
+
+    // One frame of particle simulation: burn fuel, fire emitters off the current
+    // state, advance every particle, and only repaint when something's live.
+    private void StepParticles()
+    {
+        const float dt = 0.016f;
+        _state.TickBurner(dt);
+
+        // Chama saindo do bocal enquanto o bico estiver aceso.
+        if (_state.BurnerOn)
+            _particles.EmitFire(BurnerNozzle.X, BurnerNozzle.Y, 3);
+
+        // Bolhas subindo do béquer enquanto aquecido.
+        if (_state.IsHeated)
+        {
+            var r = _state.BeakerRect;
+            float surfX = r.X + r.Width / 2f;
+            float surfY = r.Y + r.Height * 0.50f;
+            _particles.EmitBubble(surfX, surfY, 1);
+        }
+
+        // Faíscas/fumaça ao misturar (chacoalhando o béquer).
+        if (_mixer.Mixing)
+        {
+            var r = _state.BeakerRect;
+            _particles.EmitMix(r.X + r.Width / 2f, r.Y + r.Height * 0.42f);
+        }
+
+        // Explosão de partículas quando entra em erro de ordem.
+        if (_state.Phase == GamePhase.WrongOrder && _lastPhase != GamePhase.WrongOrder)
+            _particles.EmitErrorBurst(400, 300);
+        _lastPhase = _state.Phase;
+
+        _particles.Update(dt);
+
+        bool live = _particles.Count > 0 || _state.BurnerOn || _state.IsHeated || _mixer.Mixing;
+        if (live) Invalidate();
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
         Renderer.DrawAll(e.Graphics, _state, _ingredients, _mousePos, _drag, _mixer.Mixing, _mixer.Percent);
+        _particles.Draw(e.Graphics);
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
@@ -89,6 +139,14 @@ public partial class Form1 : Form
     {
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left || _drag.Active || _beakerHeld) return;
+
+        // Botão "On" do bico de Bunsen.
+        if (HitTester.OnButton.Contains(e.Location))
+        {
+            _state.ToggleBurner();
+            Invalidate();
+            return;
+        }
 
         // Beaker takes priority over the bottles behind it.
         if (_state.BeakerRect.Contains(e.Location))

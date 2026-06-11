@@ -78,7 +78,7 @@ public static class Renderer
         DrawBeaker(g, state);
 
         // 7. UI Buttons
-        DrawButtons(g, state.Phase);
+        DrawButtons(g, state);
 
         // Dragged compound, upper half → on top of Walter (held up high).
         if (drag.Active && drag.CenterY <= 300)
@@ -253,16 +253,50 @@ public static class Renderer
         }
     }
 
-    static void DrawButtons(Graphics g, GamePhase phase)
+    static void DrawButtons(Graphics g, GameState state)
     {
-        // "On" button - red circle, below the burner
-        DrawCircleButton(g, 200, 435, 20, "On", Color.Red, Color.White);
+        // "On" button - acende/apaga o bico. Verde quando aceso, cinza quando
+        // o gás acaba (não dá mais pra ligar).
+        Color onColor = state.BurnerEmpty ? Color.FromArgb(90, 90, 90)
+                      : state.BurnerOn    ? Color.LimeGreen
+                      : Color.Red;
+        // halo sutil quando aceso
+        if (state.BurnerOn)
+        {
+            using var halo = new SolidBrush(Color.FromArgb(80, 255, 180, 60));
+            g.FillEllipse(halo, 200 - 30, 435 - 30, 60, 60);
+        }
+        DrawCircleButton(g, 200, 435, 20, state.BurnerEmpty ? "X" : "On", onColor, Color.White);
+        DrawFuelGauge(g, state);
 
         // "Ok" button - green circle, center bottom
         DrawCircleButton(g, 400, 555, 20, "Ok", Color.LimeGreen, Color.Black);
 
         // "Recomeçar" button - blue rectangle, bottom right
         DrawRectButton(g, 700, 540, 100, 40, "Recomeçar", Color.RoyalBlue, Color.White);
+    }
+
+    static void DrawFuelGauge(Graphics g, GameState state)
+    {
+        // Barrinha de gás logo abaixo do botão On.
+        var bar = new Rectangle(170, 462, 60, 8);
+        using var back = new SolidBrush(Color.FromArgb(180, 30, 30, 30));
+        g.FillRoundedRectangle(back, bar, 3);
+
+        float frac = Math.Clamp(state.Fuel / 100f, 0f, 1f);
+        if (frac > 0f)
+        {
+            int w = Math.Max(2, (int)(bar.Width * frac));
+            Color fill = frac > 0.5f ? Color.LimeGreen : frac > 0.2f ? Color.Orange : Color.OrangeRed;
+            using var fb = new SolidBrush(fill);
+            g.FillRoundedRectangle(fb, new Rectangle(bar.X, bar.Y, w, bar.Height), 3);
+        }
+        using var pen = new Pen(Color.FromArgb(120, 0, 0, 0), 1f);
+        g.DrawRoundedRectangle(pen, bar, 3);
+
+        using var font = new Font("Arial", 6.5f, FontStyle.Bold);
+        using var txt = new SolidBrush(Color.White);
+        g.DrawString("GÁS", font, txt, bar.X + 1, bar.Y - 11);
     }
 
     static void DrawCircleButton(Graphics g, int cx, int cy, int radius, string label, Color bgColor, Color textColor)

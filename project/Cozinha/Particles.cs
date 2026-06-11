@@ -1,0 +1,233 @@
+using System.Drawing.Drawing2D;
+
+namespace Cozinha;
+
+public enum ParticleKind { Fire, Smoke, Bubble, Spark, ErrorPuff }
+
+// Lightweight particle. Life runs from MaxLife down to 0; most visuals fade
+// or shrink as a function of Life/MaxLife.
+public class Particle
+{
+    public float X, Y;
+    public float VX, VY;
+    public float Life;
+    public float MaxLife;
+    public float Size;
+    public float Seed;        // per-particle phase for wobble
+    public ParticleKind Kind;
+
+    public float Frac => MaxLife <= 0 ? 0 : Life / MaxLife; // 1 → 0 over lifetime
+}
+
+// Owns every live particle and the emitters. Driven by a single ~60fps tick in
+// Form1. Pure simulation + GDI+ drawing; never touches game rules.
+public class ParticleSystem
+{
+    readonly List<Particle> _ps = new();
+    readonly Random _rng = new();
+    float _t; // global clock for wobble
+
+    public int Count => _ps.Count;
+
+    public void Update(float dt)
+    {
+        _t += dt;
+        for (int i = _ps.Count - 1; i >= 0; i--)
+        {
+            var p = _ps[i];
+            p.Life -= dt;
+            if (p.Life <= 0f) { _ps.RemoveAt(i); continue; }
+
+            p.X += p.VX * dt;
+            p.Y += p.VY * dt;
+
+            switch (p.Kind)
+            {
+                case ParticleKind.Fire:
+                    p.VY -= 60f * dt;            // accelerates upward as it gets hot
+                    p.X += (float)Math.Sin((_t + p.Seed) * 9f) * 12f * dt;
+                    break;
+                case ParticleKind.Smoke:
+                    p.VY -= 8f * dt;
+                    p.X += (float)Math.Sin((_t + p.Seed) * 2.5f) * 10f * dt;
+                    p.Size += 18f * dt;          // billows out
+                    break;
+                case ParticleKind.Bubble:
+                    p.VY -= 14f * dt;            // buoyancy
+                    p.X += (float)Math.Sin((_t + p.Seed) * 7f) * 14f * dt;
+                    break;
+                case ParticleKind.Spark:
+                    p.VY += 260f * dt;           // gravity
+                    p.VX *= 0.96f;
+                    break;
+                case ParticleKind.ErrorPuff:
+                    p.VX *= 0.93f;
+                    p.VY = p.VY * 0.93f + 40f * dt;
+                    break;
+            }
+        }
+    }
+
+    public void Draw(Graphics g)
+    {
+        var oldMode = g.SmoothingMode;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        foreach (var p in _ps)
+        {
+            switch (p.Kind)
+            {
+                case ParticleKind.Fire:   DrawFire(g, p);   break;
+                case ParticleKind.Smoke:  DrawSmoke(g, p);  break;
+                case ParticleKind.Bubble: DrawBubble(g, p); break;
+                case ParticleKind.Spark:  DrawSpark(g, p);  break;
+                case ParticleKind.ErrorPuff: DrawErrorPuff(g, p); break;
+            }
+        }
+        g.SmoothingMode = oldMode;
+    }
+
+    public void Clear() => _ps.Clear();
+
+    // ── Emitters ─────────────────────────────────────────────────────────────
+
+    public void EmitFire(float x, float y, int n)
+    {
+        for (int i = 0; i < n; i++)
+        {
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Fire,
+                X = x + Rand(-9, 9),
+                Y = y + Rand(-3, 3),
+                VX = Rand(-14, 14),
+                VY = Rand(-70, -40),
+                Life = Rand(0.35f, 0.7f),
+                MaxLife = 0.7f,
+                Size = Rand(9, 16),
+                Seed = Rand(0, 100),
+            });
+        }
+        // occasional wisp of smoke off the top of the flame
+        if (_rng.NextDouble() < 0.25)
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Smoke,
+                X = x + Rand(-5, 5), Y = y - 28,
+                VX = Rand(-6, 6), VY = Rand(-26, -16),
+                Life = Rand(0.8f, 1.4f), MaxLife = 1.4f,
+                Size = Rand(7, 12), Seed = Rand(0, 100),
+            });
+    }
+
+    public void EmitBubble(float x, float y, int n)
+    {
+        for (int i = 0; i < n; i++)
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Bubble,
+                X = x + Rand(-18, 18), Y = y + Rand(-2, 4),
+                VX = Rand(-6, 6), VY = Rand(-26, -14),
+                Life = Rand(0.6f, 1.1f), MaxLife = 1.1f,
+                Size = Rand(3, 7), Seed = Rand(0, 100),
+            });
+    }
+
+    public void EmitMix(float x, float y)
+    {
+        // a couple of sparks flinging up, plus a curl of smoke
+        for (int i = 0; i < 2; i++)
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Spark,
+                X = x + Rand(-12, 12), Y = y,
+                VX = Rand(-90, 90), VY = Rand(-150, -70),
+                Life = Rand(0.35f, 0.6f), MaxLife = 0.6f,
+                Size = Rand(2, 4), Seed = Rand(0, 100),
+            });
+        if (_rng.NextDouble() < 0.4)
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.Smoke,
+                X = x + Rand(-10, 10), Y = y - 6,
+                VX = Rand(-8, 8), VY = Rand(-30, -18),
+                Life = Rand(0.7f, 1.2f), MaxLife = 1.2f,
+                Size = Rand(6, 11), Seed = Rand(0, 100),
+            });
+    }
+
+    public void EmitErrorBurst(float cx, float cy)
+    {
+        for (int i = 0; i < 40; i++)
+        {
+            double a = _rng.NextDouble() * Math.PI * 2;
+            float speed = Rand(120, 340);
+            _ps.Add(new Particle
+            {
+                Kind = ParticleKind.ErrorPuff,
+                X = cx, Y = cy,
+                VX = (float)Math.Cos(a) * speed,
+                VY = (float)Math.Sin(a) * speed,
+                Life = Rand(0.4f, 0.8f), MaxLife = 0.8f,
+                Size = Rand(4, 10), Seed = Rand(0, 100),
+            });
+        }
+    }
+
+    // ── Drawing per kind ─────────────────────────────────────────────────────
+
+    static void DrawFire(Graphics g, Particle p)
+    {
+        float f = p.Frac;                 // 1 (hot/young) → 0 (cooled)
+        Color c = f > 0.6f ? Lerp(Color.FromArgb(255, 255, 230, 120), Color.FromArgb(255, 255, 170, 40), (1 - f) / 0.4f)
+                : f > 0.3f ? Lerp(Color.FromArgb(255, 255, 170, 40), Color.FromArgb(255, 230, 70, 20), (0.6f - f) / 0.3f)
+                : Lerp(Color.FromArgb(230, 230, 70, 20), Color.FromArgb(0, 120, 30, 20), (0.3f - f) / 0.3f);
+        float s = p.Size * (0.5f + f * 0.7f);
+        using var b = new SolidBrush(c);
+        g.FillEllipse(b, p.X - s / 2, p.Y - s / 2, s, s);
+    }
+
+    static void DrawSmoke(Graphics g, Particle p)
+    {
+        int a = (int)(90 * p.Frac);
+        using var b = new SolidBrush(Color.FromArgb(Math.Max(0, a), 110, 110, 110));
+        g.FillEllipse(b, p.X - p.Size / 2, p.Y - p.Size / 2, p.Size, p.Size);
+    }
+
+    static void DrawBubble(Graphics g, Particle p)
+    {
+        int a = (int)(170 * p.Frac);
+        using var pen = new Pen(Color.FromArgb(Math.Max(0, a), 235, 245, 255), 1.4f);
+        g.DrawEllipse(pen, p.X - p.Size / 2, p.Y - p.Size / 2, p.Size, p.Size);
+        using var hi = new SolidBrush(Color.FromArgb(Math.Max(0, a / 2), 255, 255, 255));
+        g.FillEllipse(hi, p.X - p.Size / 4, p.Y - p.Size / 3, p.Size / 3, p.Size / 3);
+    }
+
+    static void DrawSpark(Graphics g, Particle p)
+    {
+        int a = (int)(255 * p.Frac);
+        using var b = new SolidBrush(Color.FromArgb(Math.Max(0, a), 255, 220, 120));
+        g.FillEllipse(b, p.X - p.Size / 2, p.Y - p.Size / 2, p.Size, p.Size);
+    }
+
+    static void DrawErrorPuff(Graphics g, Particle p)
+    {
+        int a = (int)(220 * p.Frac);
+        float s = p.Size * (0.6f + p.Frac * 0.6f);
+        using var b = new SolidBrush(Color.FromArgb(Math.Max(0, a), 255, 60, 40));
+        g.FillEllipse(b, p.X - s / 2, p.Y - s / 2, s, s);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    float Rand(float lo, float hi) => lo + (float)_rng.NextDouble() * (hi - lo);
+
+    static Color Lerp(Color a, Color b, float t)
+    {
+        t = Math.Clamp(t, 0f, 1f);
+        return Color.FromArgb(
+            (int)(a.A + (b.A - a.A) * t),
+            (int)(a.R + (b.R - a.R) * t),
+            (int)(a.G + (b.G - a.G) * t),
+            (int)(a.B + (b.B - a.B) * t));
+    }
+}

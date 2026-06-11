@@ -10,6 +10,9 @@ public static class HitTester
         ["RESET"] = new Rectangle(622, 477, 80,  38),
     };
 
+    // "On" button (bico de Bunsen) — círculo desenhado em (200,435) r=20.
+    public static readonly Rectangle OnButton = new(180, 415, 40, 40);
+
     public static string? HitIngredient(Point p, List<Ingredient> ingredients)
     {
         foreach (var ing in ingredients)
