@@ -21,6 +21,9 @@ public partial class Form1 : Form
     private static readonly PointF BurnerNozzle = new(170, 292);
     // Zona da chama: área acima do bocal onde o béquer precisa estar para aquecer.
     private static readonly Rectangle BurnerFlameZone = new(125, 228, 90, 65);
+
+    private float _heatAccum;          // segundos com béquer sobre a chama
+    private const float HeatRequired = 3f; // tempo necessário para aquecer
     private bool _beakerHeld;
     private bool _beakerReturning;
     private Point _beakerGrab;     // cursor offset inside the beaker when grabbed
@@ -89,12 +92,21 @@ public partial class Form1 : Form
         if (_state.BurnerOn)
             _particles.EmitFire(BurnerNozzle.X, BurnerNozzle.Y, 3);
 
-        // Béquer sobre a chama com bico aceso → avança o passo de aquecer.
-        if (_state.BurnerOn && BurnerFlameZone.IntersectsWith(_state.BeakerRect))
-            _state.OnBurnerLit();
+        // Béquer sobre a chama com bico aceso → acumula calor e avança quando atingir o tempo.
+        bool beakerOverFlame = _state.BurnerOn && BurnerFlameZone.IntersectsWith(_state.BeakerRect);
+        if (beakerOverFlame && _state.Current is { Type: StepType.PerformAction, Id: "HEAT" })
+        {
+            _heatAccum += dt;
+            if (_heatAccum >= HeatRequired)
+                _state.OnBurnerLit();
+        }
+        else if (!beakerOverFlame)
+        {
+            _heatAccum = 0f;
+        }
 
-        // Bolhas subindo do béquer enquanto o bico aquece o líquido.
-        if (_state.BurnerOn && _state.BeakerFill.Count > 0)
+        // Bolhas sobem só quando béquer está sobre a chama.
+        if (beakerOverFlame && _state.BeakerFill.Count > 0)
         {
             var r = _state.BeakerRect;
             _particles.EmitBubble(r.X + r.Width / 2f, r.Y + r.Height * 0.50f, 1);
@@ -183,6 +195,7 @@ public partial class Form1 : Form
         {
             _state.Reset();
             _mixer.Reset();
+            _heatAccum = 0f;
             Invalidate();
             return;
         }
@@ -259,6 +272,7 @@ public partial class Form1 : Form
         {
             _state.Reset();
             _mixer.Reset();
+            _heatAccum = 0f;
             Invalidate();
         }
     }
