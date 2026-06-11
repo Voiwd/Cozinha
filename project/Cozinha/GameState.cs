@@ -191,6 +191,12 @@ public class GameState
         LastFeedbackMessage = "";
     }
 
+    // DEBUG: alterna a expressão (0 normal -> 1 feliz -> 2 triste -> 0) para testar os rostos.
+    public void DebugCycleFace()
+    {
+        WalterExpression = (WalterExpression + 1) % 3;
+    }
+
     private void CheckComplete()
     {
         if (CurrentStep == Recipe.Length)

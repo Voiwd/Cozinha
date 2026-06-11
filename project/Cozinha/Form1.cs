@@ -91,6 +91,14 @@ public partial class Form1 : Form
             }
         };
         _typeTimer.Start();
+
+        MusicPlayer.Play("YTDown_YouTube_Breaking-Bad-Intro_Media_F1HNuAE9WdU_007_128k.mp3");
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        MusicPlayer.Stop();
+        base.OnFormClosed(e);
     }
 
     // One frame of particle simulation: burn fuel, fire emitters off the current
@@ -209,6 +217,14 @@ public partial class Form1 : Form
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left || _drag.Active || _beakerHeld) return;
 
+        // DEBUG: clicar no Walter alterna o rosto (normal -> feliz -> triste).
+        if (Renderer.WalterDest.Contains(e.Location) && e.Y < 385)
+        {
+            _state.DebugCycleFace();
+            Invalidate();
+            return;
+        }
+
         // Botão "On" do bico de Bunsen — apenas acende/apaga, não avança o passo.
         // O avanço ocorre no tick quando o béquer estiver sobre a chama.
         if (HitTester.OnButton.Contains(e.Location))
@@ -309,6 +325,12 @@ public partial class Form1 : Form
             _state.Reset();
             _mixer.Reset();
             _heatAccum = 0f;
+            Invalidate();
+        }
+        else if (e.KeyCode == Keys.F)
+        {
+            // DEBUG: tecla F também alterna o rosto do Walter.
+            _state.DebugCycleFace();
             Invalidate();
         }
     }

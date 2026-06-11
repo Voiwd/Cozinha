@@ -15,7 +15,14 @@ public static class Renderer
     static readonly Rectangle EstanteSrcRect = new(0, 375, 800, 50);
 
     // Walter: upper body visible on the right, lower half behind the mesa.
-    static readonly Rectangle WalterDest = new(480, 90, 360, 360);
+    // >>> AJUSTE A IMAGEM DA CABEÇA AQUI: posição (x, y) e tamanho (largura, altura). <<<
+    public static readonly Rectangle WalterDest = new(600, 135, 160, 160);
+
+    // >>> AJUSTE O CORPO DO WALTER AQUI: posição (x, y) e tamanho (largura, altura). <<<
+    public static readonly Rectangle WalterBodyDest = new(540, 250, 280, 280);
+
+    // >>> AJUSTE O CHAPÉU AQUI: posição (x, y) e tamanho (largura, altura). <<<
+    public static readonly Rectangle HatDest = new(605, 110, 150, 90);
 
     // Table top surface y
     const int TableTop = 315;
@@ -144,9 +151,18 @@ public static class Renderer
 
     static void DrawWalter(Graphics g, int expression)
     {
-        if (AssetManager.Walter != null)
+        // Corpo primeiro (atrás), depois a cabeça por cima.
+        if (AssetManager.WalterBody != null)
+            g.DrawImage(AssetManager.WalterBody, WalterBodyDest);
+
+        // Troca a "cabeça"/expressão conforme o estado; volta para walter.png se faltar.
+        var head = AssetManager.GetWalterHead(expression) ?? AssetManager.Walter;
+        if (head != null)
         {
-            g.DrawImage(AssetManager.Walter, WalterDest);
+            g.DrawImage(head, WalterDest);
+            // Chapéu por cima da cabeça.
+            if (AssetManager.Hat != null)
+                g.DrawImage(AssetManager.Hat, HatDest);
             return;
         }
 

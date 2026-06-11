@@ -8,10 +8,15 @@ public static class AssetManager
     public static Bitmap? Estante      { get; private set; }
     public static Bitmap? Mesa         { get; private set; }
     public static Bitmap? Walter       { get; private set; }
+    public static Bitmap? WalterBody    { get; private set; }
+    public static Bitmap? Hat           { get; private set; }
     public static Bitmap? Beaker       { get; private set; }
     public static Bitmap? Burner       { get; private set; }
 
     static Dictionary<string, Bitmap?> IngredientAssets { get; } = new();
+
+    // Cabeças do Walter por expressão (0=normal 1=feliz 2=triste).
+    static Dictionary<int, Bitmap?> WalterHeads { get; } = new();
 
     public static void Load()
     {
@@ -22,6 +27,13 @@ public static class AssetManager
         Estante    = LoadAsset("estante.png",    keyWhite: true);                // pequena
         Mesa       = LoadAsset("mesa.png",       keyWhite: true);                // já 800x600
         Walter     = LoadAsset("walter.png",     keyWhite: false, 360, 360);     // real alpha channel
+        WalterBody = LoadAsset("Corpo Walter.png", keyWhite: false); // corpo (sem cabeça)
+        Hat        = LoadAsset("Chapeu.png",        keyWhite: true);  // chapéu (fundo branco)
+
+        // Cabeças trocáveis conforme a reação do Walter
+        WalterHeads[0] = LoadAsset("Walter Normal.png", keyWhite: false);
+        WalterHeads[1] = LoadAsset("walter feliz.png",  keyWhite: false);
+        WalterHeads[2] = LoadAsset("Walter Triste.png", keyWhite: false);
         Beaker     = LoadAsset("bequer.png",     keyWhite: true,  180, 140);
         Burner     = LoadAsset("bicobunsen.png", keyWhite: true,  100, 120);
 
@@ -32,6 +44,13 @@ public static class AssetManager
         LoadIngredientAsset("Iodo.png");
         LoadIngredientAsset("Acido Sulfurico.png");
         LoadIngredientAsset("Hcl.png");
+    }
+
+    // Retorna a cabeça correspondente à expressão; cai para a normal se faltar.
+    public static Bitmap? GetWalterHead(int expression)
+    {
+        if (WalterHeads.TryGetValue(expression, out var bmp) && bmp != null) return bmp;
+        return WalterHeads.TryGetValue(0, out var normal) ? normal : null;
     }
 
     public static Bitmap? GetIngredientAsset(string assetName)
