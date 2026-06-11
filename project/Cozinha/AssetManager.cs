@@ -11,12 +11,20 @@ public static class AssetManager
 
     static Dictionary<string, Bitmap?> IngredientAssets { get; } = new();
 
+    // Cabeças do Walter por expressão (0=normal 1=feliz 2=triste).
+    static Dictionary<int, Bitmap?> WalterHeads { get; } = new();
+
     public static void Load()
     {
         Background = LoadAsset("background.png", keyWhite: false);
         Estante    = LoadAsset("estante.png",    keyWhite: true);
         Mesa       = LoadAsset("mesa.png",       keyWhite: true);
         Walter     = LoadAsset("walter.png",     keyWhite: false); // real alpha channel
+
+        // Cabeças trocáveis conforme a reação do Walter
+        WalterHeads[0] = LoadAsset("Walter Normal.png", keyWhite: false);
+        WalterHeads[1] = LoadAsset("walter feliz.png",  keyWhite: false);
+        WalterHeads[2] = LoadAsset("Walter Triste.png", keyWhite: false);
         Beaker     = LoadAsset("bequer.png",     keyWhite: true);
         Burner     = LoadAsset("bicobunsen.png", keyWhite: true);
 
@@ -27,6 +35,13 @@ public static class AssetManager
         LoadIngredientAsset("Iodo.png");
         LoadIngredientAsset("Acido Sulfurico.png");
         LoadIngredientAsset("Hcl.png");
+    }
+
+    // Retorna a cabeça correspondente à expressão; cai para a normal se faltar.
+    public static Bitmap? GetWalterHead(int expression)
+    {
+        if (WalterHeads.TryGetValue(expression, out var bmp) && bmp != null) return bmp;
+        return WalterHeads.TryGetValue(0, out var normal) ? normal : null;
     }
 
     public static Bitmap? GetIngredientAsset(string assetName)

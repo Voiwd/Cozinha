@@ -111,9 +111,11 @@ public static class Renderer
 
     static void DrawWalter(Graphics g, int expression)
     {
-        if (AssetManager.Walter != null)
+        // Troca a "cabeça"/expressão conforme o estado; volta para walter.png se faltar.
+        var head = AssetManager.GetWalterHead(expression) ?? AssetManager.Walter;
+        if (head != null)
         {
-            g.DrawImage(AssetManager.Walter, WalterDest);
+            g.DrawImage(head, WalterDest);
             return;
         }
 
