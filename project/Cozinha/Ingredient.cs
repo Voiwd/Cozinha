@@ -26,10 +26,12 @@ public static class IngredientFactory
             ("HCl",    "Ácido Clorídrico",    "HCl",    Color.LightGreen,              Color.FromArgb(180, 230, 180), "Hcl.png"),
         };
 
-        // 3 bottles per shelf; shelf surfaces at y=80 and y=200 (adjusted to match renderer positions)
+        // 3 bottles per shelf; shelf surfaces at y=80 and y=200 (adjusted to match renderer positions).
+        // Espaçamento compactado à esquerda para liberar o canto superior
+        // direito da janela para o balão de diálogo do Walter.
         const int bottleH = 100;
         const int bottleW = 100;
-        int[] xs    = { 75, 305, 515 };
+        int[] xs    = { 60, 250, 440 };
         int[] ys    = { 100 - bottleH, 100 - bottleH, 100 - bottleH,
                         230 - bottleH, 220 - bottleH, 220 - bottleH };
         int[] xsFull = { xs[0], xs[1], xs[2], xs[0], xs[1], xs[2] };

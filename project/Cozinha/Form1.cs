@@ -19,6 +19,11 @@ public partial class Form1 : Form
     private readonly System.Windows.Forms.Timer _typeTimer;
     private string _walterTarget = "";
     private int _walterChars;
+
+    // Tooltip de fórmula: aparece quando o mouse para sobre um composto.
+    private readonly System.Windows.Forms.Timer _hoverTimer;
+    private Ingredient? _hoverIng;   // composto sob o cursor agora
+    private Ingredient? _tooltipIng; // tooltip visível (mouse parado)
     private GamePhase _lastPhase = GamePhase.Playing;       // edge-detect WrongOrder
     private int _lastStep;                                  // detect step changes
 
@@ -44,11 +49,15 @@ public partial class Form1 : Form
         _ingredients = IngredientFactory.CreateAll();
         _mousePos    = Point.Empty;
 
-        _feedbackTimer = new System.Windows.Forms.Timer { Interval = 1500 };
+        // Perdeu (ordem errada) → 4 segundos vendo o erro, depois o jogo
+        // reinicia do zero.
+        _feedbackTimer = new System.Windows.Forms.Timer { Interval = 4000 };
         _feedbackTimer.Tick += (_, _) =>
         {
             _feedbackTimer.Stop();
-            _state.RecoverFromWrongOrder();
+            _state.Reset();
+            _mixer.Reset();
+            _heatAccum = 0f;
             Invalidate();
         };
 
@@ -91,6 +100,17 @@ public partial class Form1 : Form
             }
         };
         _typeTimer.Start();
+
+        _hoverTimer = new System.Windows.Forms.Timer { Interval = 500 };
+        _hoverTimer.Tick += (_, _) =>
+        {
+            _hoverTimer.Stop();
+            if (_hoverIng != null && !_drag.Active && !_beakerHeld)
+            {
+                _tooltipIng = _hoverIng;
+                Invalidate();
+            }
+        };
 
         MusicPlayer.Play("YTDown_YouTube_Breaking-Bad-Intro_Media_F1HNuAE9WdU_007_128k.mp3");
     }
@@ -181,7 +201,7 @@ public partial class Form1 : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
-        Renderer.DrawAll(e.Graphics, _state, _ingredients, _mousePos, _drag, _mixer.Mixing, _mixer.Percent, _walterTarget, _walterChars);
+        Renderer.DrawAll(e.Graphics, _state, _ingredients, _mousePos, _drag, _mixer.Mixing, _mixer.Percent, _walterTarget, _walterChars, _tooltipIng);
         _particles.Draw(e.Graphics);
     }
 
@@ -206,16 +226,30 @@ public partial class Form1 : Form
             return;
         }
 
-        foreach (var ing in _ingredients)
-            ing.IsHovered = ing.Bounds.Contains(e.Location);
+        // Mouse andou → esconde o tooltip e recomeça a contagem de pausa.
+        bool repaint = _tooltipIng != null;
+        _tooltipIng = null;
+        _hoverIng = _ingredients.FirstOrDefault(i => i.Bounds.Contains(e.Location));
+        _hoverTimer.Stop();
+        if (_hoverIng != null) _hoverTimer.Start();
 
-        Invalidate();
+        // Só repinta quando o hover muda de fato. Invalidate() em todo
+        // movimento redesenhava a cena inteira e causava lag no mouse.
+        foreach (var ing in _ingredients)
+        {
+            bool h = ing.Bounds.Contains(e.Location);
+            if (h != ing.IsHovered) { ing.IsHovered = h; repaint = true; }
+        }
+        if (repaint) Invalidate();
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
     {
         base.OnMouseDown(e);
         if (e.Button != MouseButtons.Left || _drag.Active || _beakerHeld) return;
+
+        _hoverTimer.Stop();
+        _tooltipIng = null;
 
         // DEBUG: clicar no Walter alterna o rosto (normal -> feliz -> triste).
         if (Renderer.WalterDest.Contains(e.Location) && e.Y < 385)
