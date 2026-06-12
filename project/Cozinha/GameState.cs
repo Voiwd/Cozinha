@@ -169,14 +169,6 @@ public class GameState
         CheckComplete();
     }
 
-    public void RecoverFromWrongOrder()
-    {
-        if (Phase != GamePhase.WrongOrder) return;
-        Phase = GamePhase.Playing;
-        WalterExpression = 0;
-        LastFeedbackMessage = "";
-    }
-
     public void Reset()
     {
         Phase = GamePhase.Playing;

@@ -10,8 +10,9 @@ public static class HitTester
         ["RESET"] = new Rectangle(622, 477, 80,  38),
     };
 
-    // "On" button (bico de Bunsen) — círculo desenhado em (200,435) r=20.
-    public static readonly Rectangle OnButton = new(180, 415, 40, 40);
+    // "On" button (bico de Bunsen) — círculo desenhado em (170,452) r=20,
+    // centralizado sob o bico junto com a barra de gás.
+    public static readonly Rectangle OnButton = new(150, 432, 40, 40);
 
     // "Servir" — círculo em (400,555) r=24. Entrega o produto final.
     public static readonly Rectangle ServeButton = new(374, 529, 52, 52);

@@ -30,7 +30,7 @@ public static class Renderer
 
     // ── Entry point ──────────────────────────────────────────────────────────
 
-    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag, bool mixing, int mixPercent, string walterFull, int walterVisible)
+    public static void DrawAll(Graphics g, GameState state, List<Ingredient> ingredients, Point mouse, DragController drag, bool mixing, int mixPercent, string walterFull, int walterVisible, Ingredient? tooltip = null)
     {
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
@@ -40,14 +40,18 @@ public static class Renderer
         if (mixing) DrawMixLabel(g, mixPercent);
 
         if (state.Phase == GamePhase.WrongOrder)
-            DrawErrorFlash(g, state.LastFeedbackMessage);
+            DrawErrorMessage(g, state.LastFeedbackMessage);
         else if (state.Phase == GamePhase.Success)
             DrawSuccessOverlay(g);
 
         // Walter fala com o jogador (balão saindo dele, texto datilografado).
-        // Desenhado por último para ficar legível mesmo sobre o flash de erro.
         if (state.Phase != GamePhase.Success)
             DrawWalterBubble(g, state, walterFull, walterVisible);
+
+        // Tooltip de fórmula química (mouse parado sobre um composto) — por
+        // cima de tudo, ancorado no cursor.
+        if (tooltip != null)
+            DrawFormulaTooltip(g, tooltip, mouse);
     }
 
     // ── Scene ────────────────────────────────────────────────────────────────
@@ -265,14 +269,15 @@ public static class Renderer
         Color onColor = state.BurnerEmpty ? Color.FromArgb(90, 90, 90)
                       : state.BurnerOn    ? Color.LimeGreen
                       : Color.Red;
+        // Barra de gás e botão On empilhados, centralizados sob o bico (cx=170).
+        DrawFuelGauge(g, state);
         // halo sutil quando aceso
         if (state.BurnerOn)
         {
             using var halo = new SolidBrush(Color.FromArgb(80, 255, 180, 60));
-            g.FillEllipse(halo, 200 - 30, 435 - 30, 60, 60);
+            g.FillEllipse(halo, 170 - 30, 452 - 30, 60, 60);
         }
-        DrawCircleButton(g, 200, 435, 20, state.BurnerEmpty ? "X" : "On", onColor, Color.White);
-        DrawFuelGauge(g, state);
+        DrawCircleButton(g, 170, 452, 20, state.BurnerEmpty ? "X" : "On", onColor, Color.White);
 
         // "Servir" - entrega o produto. Verde aceso quando é a vez de servir.
         bool serveTurn = state.Current is { Type: StepType.PerformAction, Id: "SERVE" };
@@ -290,25 +295,30 @@ public static class Renderer
 
     static void DrawFuelGauge(Graphics g, GameState state)
     {
-        // Barrinha de gás logo abaixo do botão On.
-        var bar = new Rectangle(170, 462, 60, 8);
+        // Barra de gás centralizada sob o bico de Bunsen (cx=170), acima do
+        // botão On.
+        var bar = new Rectangle(130, 408, 80, 16);
         using var back = new SolidBrush(Color.FromArgb(180, 30, 30, 30));
-        g.FillRoundedRectangle(back, bar, 3);
+        g.FillRoundedRectangle(back, bar, 6);
 
         float frac = Math.Clamp(state.Fuel / 100f, 0f, 1f);
         if (frac > 0f)
         {
-            int w = Math.Max(2, (int)(bar.Width * frac));
+            int w = Math.Max(4, (int)(bar.Width * frac));
             Color fill = frac > 0.5f ? Color.LimeGreen : frac > 0.2f ? Color.Orange : Color.OrangeRed;
             using var fb = new SolidBrush(fill);
-            g.FillRoundedRectangle(fb, new Rectangle(bar.X, bar.Y, w, bar.Height), 3);
+            g.FillRoundedRectangle(fb, new Rectangle(bar.X, bar.Y, w, bar.Height), 6);
         }
         using var pen = new Pen(Color.FromArgb(120, 0, 0, 0), 1f);
-        g.DrawRoundedRectangle(pen, bar, 3);
+        g.DrawRoundedRectangle(pen, bar, 6);
 
-        using var font = new Font("Arial", 6.5f, FontStyle.Bold);
+        // Rótulo centralizado dentro da própria barra.
+        using var font = new Font("Arial", 7.5f, FontStyle.Bold);
         using var txt = new SolidBrush(Color.White);
-        g.DrawString("GÁS", font, txt, bar.X + 1, bar.Y - 11);
+        var sz = g.MeasureString("GÁS", font);
+        g.DrawString("GÁS", font, txt,
+            bar.X + (bar.Width - sz.Width) / 2f,
+            bar.Y + (bar.Height - sz.Height) / 2f);
     }
 
     static void DrawCircleButton(Graphics g, int cx, int cy, int radius, string label, Color bgColor, Color textColor)
@@ -567,9 +577,8 @@ public static class Renderer
 
         using var font = new Font("Segoe UI", 11f, FontStyle.Regular);
 
-        // Largura máxima limitada para caber entre x≈555 e a borda direita (800).
-        // Fica abaixo das prateleiras (y>245) e à direita do béquer (x>550),
-        // na área visual do Walter — sem colidir com compostos nem com o béquer.
+        // Largura máxima limitada para o balão caber no canto superior direito
+        // (as vidrarias foram compactadas para a esquerda e liberaram a área).
         const float maxTextW = 215f;
         const int pad = 12;
         int lineH = font.Height + 3;
@@ -584,21 +593,16 @@ public static class Renderer
         int bubbleW = (int)textW + pad * 2;
         int bubbleH = lines.Count * lineH + pad * 2 - 2;
 
-        // Âncora: canto superior-esquerdo do balão em (558, 252).
-        // Zona livre: x=555-795, y=252-370 (abaixo da prateleira 2, direita do béquer).
-        int bubbleX = 558;
-        int bubbleY = 252;
-        // Se o balão transbordar para baixo (muitas linhas), sobe um pouco.
-        if (bubbleY + bubbleH > 370)
-            bubbleY = Math.Max(252, 370 - bubbleH);
-        var bubble = new Rectangle(bubbleX, bubbleY, Math.Min(bubbleW, 232), bubbleH);
+        // Âncora: topo direito da janela, com 8px de margem da borda.
+        var bubble = new Rectangle(0, 8, Math.Min(bubbleW, 232), bubbleH);
+        bubble.X = 792 - bubble.Width;
 
-        // Cauda do balão apontando para a boca do Walter (centro-superior do WalterDest).
-        // Walter: x=480-840, y=90-450 → boca ~(630, 195).
+        // Cauda descendo do balão até a boca do Walter (~630, 195).
+        // Walter: x=480-840, y=90-450.
         var tail = new[]
         {
-            new Point(bubble.X + 30, bubble.Y + 4),
-            new Point(bubble.X + 65, bubble.Y + 4),
+            new Point(bubble.X + 38, bubble.Bottom - 4),
+            new Point(bubble.X + 73, bubble.Bottom - 4),
             new Point(630, 195),
         };
 
@@ -652,6 +656,27 @@ public static class Renderer
         return lines;
     }
 
+    // Tooltip com a fórmula química do composto sob o cursor (mouse parado).
+    static void DrawFormulaTooltip(Graphics g, Ingredient ing, Point mouse)
+    {
+        string text = ing.Formula;
+        using var font = new Font("Consolas", 10f, FontStyle.Bold);
+        var sz = g.MeasureString(text, font);
+
+        var box = new Rectangle(mouse.X + 14, mouse.Y + 18, (int)sz.Width + 12, (int)sz.Height + 6);
+        // Mantém dentro da janela: encosta na borda direita ou sobe acima do cursor.
+        if (box.Right > 795) box.X = 795 - box.Width;
+        if (box.Bottom > 595) box.Y = mouse.Y - box.Height - 6;
+
+        using var bg = new SolidBrush(Color.FromArgb(230, 25, 25, 35));
+        using var border = new Pen(Color.FromArgb(200, 200, 180, 60), 1.2f);
+        g.FillRoundedRectangle(bg, box, 6);
+        g.DrawRoundedRectangle(border, box, 6);
+
+        using var fg = new SolidBrush(Color.White);
+        g.DrawString(text, font, fg, box.X + 6, box.Y + 3);
+    }
+
     // Debug HUD for the shake-to-mix mechanic. Only shown while actively shaking.
     static void DrawMixLabel(Graphics g, int percent)
     {
@@ -669,18 +694,18 @@ public static class Renderer
         g.DrawString(text, font, fg, x, y);
     }
 
-    static void DrawErrorFlash(Graphics g, string message)
+    // Mensagem de erro num pill discreto — sem o flash vermelho de tela cheia.
+    static void DrawErrorMessage(Graphics g, string message)
     {
-        using var overlay = new SolidBrush(Color.FromArgb(80, 200, 0, 0));
-        g.FillRectangle(overlay, new Rectangle(0, 0, 800, 600));
-
-        using var font   = new Font("Arial", 14f, FontStyle.Bold);
-        using var shadow = new SolidBrush(Color.FromArgb(200, 0, 0, 0));
-        using var white  = new SolidBrush(Color.White);
-
+        using var font = new Font("Arial", 14f, FontStyle.Bold);
         var sz = g.MeasureString(message, font);
         float tx = (800 - sz.Width) / 2f, ty = 270;
-        g.DrawString(message, font, shadow, tx + 2, ty + 2);
+
+        var pill = new Rectangle((int)tx - 14, (int)ty - 6, (int)sz.Width + 28, (int)sz.Height + 10);
+        using var bg = new SolidBrush(Color.FromArgb(170, 0, 0, 0));
+        g.FillRoundedRectangle(bg, pill, 11);
+
+        using var white = new SolidBrush(Color.White);
         g.DrawString(message, font, white, tx, ty);
     }
 
